@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { PhysicsWorld } from "./PhysicsWorld";
 import { Player } from "../entities/Player";
 import { ThirdPersonCamera } from "../entities/Camera";
-import { TestArena } from "../world/TestArena";
+import { Village } from "../world/Village";
 import { InputBus } from "../input/InputBus";
 import { KeyboardMouseInput } from "../input/KeyboardMouseInput";
 import { AudioManager } from "../audio/AudioManager";
@@ -21,7 +21,7 @@ export class Game {
   private readonly physics: PhysicsWorld;
   private readonly player: Player;
   private readonly camera: ThirdPersonCamera;
-  private readonly arena: TestArena;
+  private readonly village: Village;
   private readonly bus: InputBus;
   private readonly kbInput: KeyboardMouseInput;
   private readonly audio: AudioManager;
@@ -61,8 +61,8 @@ export class Game {
     window.addEventListener("resize", this.handleResize);
 
     // ワールド・プレイヤー・カメラ
-    this.arena = new TestArena(physics);
-    this.scene.add(this.arena.object);
+    this.village = new Village(physics);
+    this.scene.add(this.village.object);
     this.player = new Player(physics, this.bus);
     this.scene.add(this.player.object);
     this.camera = new ThirdPersonCamera(this.bus);
@@ -141,7 +141,7 @@ export class Game {
     this.kbInput.dispose();
     this.player.dispose();
     this.camera.dispose();
-    this.arena.dispose();
+    this.village.dispose();
     this.audio.dispose();
     this.renderer.dispose();
   }

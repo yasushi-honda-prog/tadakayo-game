@@ -14,8 +14,8 @@ export const PHYSICS = {
 
 /** プレイヤー（KinematicCharacterController）の挙動 */
 export const PLAYER = {
-  /** 出現位置 */
-  SPAWN: { x: 0, y: 4, z: 8 },
+  /** 出現位置（中央広場の南手前。広場のロゴモニュメントが正面に見える） */
+  SPAWN: { x: 0, y: 4, z: 6 },
   /** 移動速度（地上） m/s */
   MOVE_SPEED: 5.5,
   /** 走り（Shift 押下時） */
