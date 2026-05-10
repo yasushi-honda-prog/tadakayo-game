@@ -1,57 +1,53 @@
-// ゲームバランス調整値。MVPで遊んで調整するための一元管理。
-
-export const LANE = {
-  // 3レーン: 左 / 中央 / 右
-  POSITIONS: [-2, 0, 2] as const,
-  WIDTH: 2,
-  // レーン移動の補間係数（lerp）。大きいほど機敏、小さいほどヌルッと
-  LERP: 0.18,
-} as const;
-
-export const PLAYER = {
-  START_LANE: 1, // 中央
-  GROUND_Y: 0.5,
-  // ジャンプ
-  JUMP_VELOCITY: 9,
-  GRAVITY: -22,
-  // 当たり判定（見た目より甘め: 足元小さめBox / 収集は広めBox）
-  HITBOX: { width: 0.55, height: 1.0, depth: 0.55 },
-  PICKUP_BOX: { width: 1.4, height: 1.6, depth: 1.4 },
-  // 描画サイズ（ビルボード）
-  SPRITE_SIZE: { width: 1.2, height: 1.8 },
-} as const;
-
-export const TRACK = {
-  // 走路の見た目の長さ。Z+方向に向かって流れる
-  LENGTH: 100,
-  WIDTH: 8,
-  // 床のスクロール係数（speed * dt をUVに加算）
-  SCROLL_FACTOR: 1 / 4,
-} as const;
-
-export const SPEED = {
-  INITIAL: 6, // m/s
-  PER_10_SEC: 0.6, // 10秒ごとに +0.6
-  MAX: 13,
-} as const;
-
-export const SPAWN = {
-  // 初期スポーン間隔（秒）。徐々に短くなる
-  INITIAL_INTERVAL: 1.4,
-  MIN_INTERVAL: 0.7,
-  INTERVAL_DECAY_PER_10_SEC: 0.08,
-  // スポーンZ（プレイヤー奥）
-  Z: -60,
-  // 障害物 vs 収集アイテムの比率
-  OBSTACLE_RATIO: 0.55,
-} as const;
-
-export const SCORE = {
-  PICKUP: 10,
-  PER_METER: 1,
-} as const;
+// 3D オープンワールド「タダカヨ村」のバランス・物理パラメータ。
 
 export const STORAGE_KEYS = {
-  HIGH_SCORE: "tadakayo-game.highScore",
   AUDIO_MUTED: "tadakayo-game.audioMuted",
+  HIGHEST_MISSION: "tadakayo-game.highestMission",
+} as const;
+
+/** 物理パラメータ */
+export const PHYSICS = {
+  GRAVITY: { x: 0, y: -22, z: 0 },
+  /** Rapier の固定タイムステップ。step ベースで物理が更新される */
+  FIXED_DT: 1 / 60,
+} as const;
+
+/** プレイヤー（KinematicCharacterController）の挙動 */
+export const PLAYER = {
+  /** 出現位置 */
+  SPAWN: { x: 0, y: 4, z: 8 },
+  /** 移動速度（地上） m/s */
+  MOVE_SPEED: 5.5,
+  /** 走り（Shift 押下時） */
+  RUN_SPEED: 8.5,
+  /** ジャンプの初速 m/s */
+  JUMP_VELOCITY: 8.0,
+  /** 重力（自前で character controller の縦速を加算する分） */
+  GRAVITY_PULL: 22,
+  /** カプセルコライダー: 半径と上下半高 */
+  COLLIDER: { radius: 0.35, halfHeight: 0.55 },
+  /** ジャンプバッファ（着地直前の入力許容秒数） */
+  JUMP_BUFFER_SEC: 0.16,
+  /** コヨーテ時間（地面を離れた直後でもジャンプ可） */
+  COYOTE_SEC: 0.12,
+  /** sprite の表示寸法 */
+  SPRITE_SIZE: { width: 1.4, height: 2.0 },
+} as const;
+
+/** 三人称カメラ（後方追従＋ピッチヨー） */
+export const CAMERA = {
+  DISTANCE: 6.0,
+  HEIGHT: 2.4,
+  /** マウス感度 */
+  MOUSE_SENSITIVITY_X: 0.0035,
+  MOUSE_SENSITIVITY_Y: 0.0028,
+  /** タッチ感度 */
+  TOUCH_SENSITIVITY_X: 0.005,
+  TOUCH_SENSITIVITY_Y: 0.004,
+  /** ピッチの上下限 [rad]（真上・真下を抑制） */
+  PITCH_MIN: -1.1,
+  PITCH_MAX: 0.45,
+  /** カメラの追従補間 */
+  LERP_POS: 0.18,
+  LERP_ANGLE: 0.22,
 } as const;

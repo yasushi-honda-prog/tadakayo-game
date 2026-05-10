@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#e33535" />
-    <title>タダカヨ ランナー — タダカヨちゃんのDX大冒険</title>
-    <meta name="description" content="NPO法人タダカヨ公式 3Dランナーゲーム。タダカヨちゃんと一緒に介護DXの旅路を駆け抜けよう！" />
+    <title>タダカヨ村 — タダカヨちゃんのDX大冒険</title>
+    <meta name="description" content="NPO法人タダカヨ公式 3Dオープンワールドゲーム。タダカヨ村でミッションをクリアしながら介護DXの世界を冒険しよう！" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,25 +19,22 @@
       <canvas id="game-canvas"></canvas>
       <div id="ui-layer">
         <div id="title-screen" class="screen visible">
-          <img class="title-logo-img" src="./assets/images/title-logo.png" alt="タダカヨ ランナー" />
-          <p class="title-subtitle">タダカヨちゃんのDX大冒険</p>
+          <img class="title-logo-img" src="./assets/images/title-logo.png" alt="タダカヨ村" />
+          <p class="title-subtitle">タダカヨちゃんのDX大冒険 — オープンワールド版</p>
+          <div class="phase-tag">Phase 5-A プロトタイプ（テストアリーナ）</div>
           <button id="start-button" class="primary-button" type="button">スタート</button>
-          <p class="title-hint">← → で移動 / Space でジャンプ / モバイルはタップ＆スワイプ</p>
+          <button id="mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
+          <div class="title-hint">
+            <strong>PC 操作:</strong><br />
+            WASD / 矢印 で移動 ・ Space でジャンプ ・ E でアクション<br />
+            <strong>マウスクリックで視点ロック</strong>、マウス移動で視点回転 ・ Shift で走る<br />
+            （Esc で視点ロック解除）
+          </div>
         </div>
         <div id="hud" class="hud hidden">
-          <div class="hud-item"><span class="hud-label">スコア</span><span id="hud-score">0</span></div>
-          <div class="hud-item"><span class="hud-label">距離</span><span id="hud-distance">0</span><span class="hud-unit">m</span></div>
+          <div class="hud-pill"><span class="hud-label">座標</span><span id="hud-position">x:0 y:0 z:0</span></div>
+          <div class="hud-pill hud-hint">クリックして視点ロック → WASD 移動 / Space ジャンプ</div>
         </div>
-        <div id="result-screen" class="screen hidden">
-          <h2 class="result-title">ありがとう！</h2>
-          <div class="result-stats">
-            <div><span>スコア</span><strong id="result-score">0</strong></div>
-            <div><span>距離</span><strong id="result-distance">0</strong>m</div>
-            <div><span>ハイスコア</span><strong id="result-highscore">0</strong></div>
-          </div>
-          <button id="retry-button" class="primary-button" type="button">もう一度</button>
-        </div>
-        <div id="audio-toggle" class="audio-toggle hidden" role="button" aria-label="音のオンオフ" tabindex="0">🔊</div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
