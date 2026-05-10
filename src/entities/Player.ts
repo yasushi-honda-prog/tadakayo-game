@@ -5,13 +5,13 @@ import type { PhysicsWorld } from "../core/PhysicsWorld";
 import type { InputBus } from "../input/InputBus";
 import type { ThirdPersonCamera } from "./Camera";
 
-type Direction = "front" | "back" | "side";
+type Direction = "front" | "back" | "sideRight" | "sideLeft";
 type Pose = "idle" | "run" | "jump" | "crouch";
 
 /**
  * sprite テクスチャの 4 方向 × 4 アクション辞書。
- * - side は left/right 共用（描画時に sprite.scale.x で flip）
- * - front/back に crouch が無いケースは side-crouch で代用
+ * - sideRight / sideLeft は専用素材を持つ（左右反転は AI 絵柄の非対称で違和感が出るため避ける）
+ * - front / back に crouch が無いケースは side で代用
  */
 type SpriteSet = Record<Direction, Partial<Record<Pose, THREE.Texture>>>;
 
@@ -93,11 +93,17 @@ export class Player {
         run: load("tadakayo-back-run"),
         jump: load("tadakayo-back-jump"),
       },
-      side: {
+      sideRight: {
         idle: load("tadakayo-side-idle"),
         run: load("tadakayo-side-run"),
         jump: load("tadakayo-side-jump"),
         crouch: load("tadakayo-side-crouch"),
+      },
+      sideLeft: {
+        idle: load("tadakayo-side-left-idle"),
+        run: load("tadakayo-side-left-run"),
+        jump: load("tadakayo-side-left-jump"),
+        crouch: load("tadakayo-side-left-crouch"),
       },
     };
   }
@@ -179,31 +185,30 @@ export class Player {
     while (rel < -Math.PI) rel += Math.PI * 2;
 
     let dir: Direction;
-    let flipX = false;
     const abs = Math.abs(rel);
     if (abs < Math.PI / 4) {
-      dir = "back"; // キャラがカメラ視線と同じ方向を向いている = 背中が見える
+      dir = "back"; // 背中が見える
     } else if (abs > (Math.PI * 3) / 4) {
-      dir = "front"; // 逆方向 = 顔が見える（カメラに向かってきている）
+      dir = "front"; // 顔が見える
+    } else if (rel > 0) {
+      // rel > 0: キャラがカメラ視線の右側を向いている → カメラから見て左側面が見える
+      dir = "sideLeft";
     } else {
-      dir = "side";
-      // rel > 0: キャラがカメラ視線の右側を向いている = 右プロファイル sprite を反転して左側面に
-      flipX = rel > 0;
+      dir = "sideRight";
     }
 
-    // テクスチャ取得（フォールバック: pose が無ければ idle、それも無ければ side の同 pose）
+    // テクスチャ取得（フォールバック: pose が無ければ idle、それも無ければ右側面の同 pose）
     const tex =
       this.textures[dir][pose] ??
       this.textures[dir].idle ??
-      this.textures.side[pose] ??
+      this.textures.sideRight[pose] ??
       this.textures.front.run!;
     if (this.material.map !== tex) {
       this.material.map = tex;
       this.material.needsUpdate = true;
     }
 
-    const w = PLAYER.SPRITE_SIZE.width;
-    this.sprite.scale.set(flipX ? -w : w, PLAYER.SPRITE_SIZE.height, 1);
+    this.sprite.scale.set(PLAYER.SPRITE_SIZE.width, PLAYER.SPRITE_SIZE.height, 1);
   }
 
   resetPosition(): void {
