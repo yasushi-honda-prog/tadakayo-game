@@ -38,6 +38,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # 初回のみ Pages を自動有効化。Settings → Pages を手動操作せずに済ませる
+          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
