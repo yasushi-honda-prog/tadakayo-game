@@ -5,7 +5,7 @@ NPO法人タダカヨ公式 3D オープンワールド・プラットフォー�
 
 公開 URL: https://yasushi-honda-prog.github.io/tadakayo-game/
 
-> 開発状態: **Phase 5-A 完了**（物理 + 三人称カメラ + テストアリーナ + 4 方向スプライト）。次フェーズで「タダカヨ村」ステージとミッション 5 本を実装。
+> 開発状態: **Phase 5-B 完了**（物理 + 三人称カメラ + 4 方向スプライト + タダカヨ村ステージ）。次フェーズで Collect / Reach のミッション基盤を実装。
 
 ## 操作
 
@@ -51,7 +51,7 @@ npm run preview
 |--------------|------|
 | `src/core/` | `PhysicsWorld`（Rapier ラッパー）、`Game`（メインループ） |
 | `src/entities/` | `Player`（KinematicCharacterController + sprite 切替）、`Camera`（三人称後方追従） |
-| `src/world/` | ステージ・ワールドの構築（Phase 5-A は `TestArena`、Phase 5-B 以降で `Village`） |
+| `src/world/` | ステージ・ワールドの構築（`Village` = タダカヨ村全体: 中央広場・塔・広場・会館・装飾・柵） |
 | `src/input/` | `InputBus`（統一入力）、`KeyboardMouseInput`（PC 入力）、Phase 5-E で `TouchInput` 追加 |
 | `src/ui/` | タイトル画面、HUD、（Phase 5-C 以降）ミッションパネル・会話 |
 | `src/audio/` | Web Audio API での SE/BGM 合成 |
@@ -64,7 +64,7 @@ npm run preview
 | Phase | 概要 | 状態 |
 |---|---|---|
 | 5-A | Rapier 物理 + 三人称カメラ + テストアリーナ + 4 方向 sprite | ✅ 完了 |
-| 5-B | タダカヨ村ステージ（中央広場 + タダスクの塔 + タダレク広場 + タダコミュ会館） | 🔜 |
+| 5-B | タダカヨ村ステージ（中央広場 + タダスクの塔 + タダレク広場 + タダコミュ会館 + 装飾 + 柵） | ✅ 完了 |
 | 5-C | ミッション基盤 + Collect / Reach ミッション 2 本 | 🔜 |
 | 5-D | NPC + 会話 + Talk ミッション | 🔜 |
 | 5-E | モバイル対応（仮想スティック + ボタン） + 残ミッション | 🔜 |
