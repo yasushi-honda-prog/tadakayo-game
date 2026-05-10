@@ -8,7 +8,7 @@
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
 - **現在ブランチ**: `feat/openworld-village`
-- **未マージ PR**: 未作成（Phase 5-B 実装ブランチを push 後に作成予定）
+- **未マージ PR**: [#8](https://github.com/yasushi-honda-prog/tadakayo-game/pull/8) — Phase 5-B タダカヨ村構築、認可待ち
 
 ## 次セッションで最初にやること
 
@@ -35,7 +35,7 @@
 | 5-A | Rapier 物理 + KinematicCharacterController + 三人称カメラ + テストアリーナ | ✅ PR #5 main 反映 |
 | 5-A 拡張 | 4 方向スプライト 12 枚 + Player 多方向切替 + バグ修正 3 件 | ✅ PR #6 main 反映 |
 | 5-A 文書 | README/CLAUDE.md 更新 + ピボット ADR | ✅ PR #7 main 反映 |
-| 5-B | タダカヨ村ステージ構築（中央広場 + 塔 + 広場 + 会館 + 装飾） | 🟡 ブランチ作業中 |
+| 5-B | タダカヨ村ステージ構築（中央広場 + 塔 + 広場 + 会館 + 装飾） | 🟡 PR #8 認可待ち |
 | 5-C | ミッション基盤 + Collect/Reach 2 本 | 🔜 |
 | 5-D | NPC + 会話 + Talk ミッション 1 本 | 🔜 |
 | 5-E | モバイル対応（仮想スティック + ボタン）+ 残ミッション | 🔜 |
