@@ -50,7 +50,9 @@ html, body {
   pointer-events: none;
 }
 
-.screen, .hud { pointer-events: auto; }
+/* screen はモーダル UI なので auto。hud は表示のみで canvas へのクリックを邪魔しないよう none */
+.screen { pointer-events: auto; }
+.hud { pointer-events: none; }
 
 .screen.hidden, .hud.hidden {
   opacity: 0;
@@ -175,7 +177,7 @@ html, body {
 }
 
 .hud-pill {
-  pointer-events: auto;
+  /* hud 内のピルは表示のみ。canvas へのクリックを通すため pointer-events を引き継がない */
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
