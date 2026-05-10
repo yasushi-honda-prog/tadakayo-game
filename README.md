@@ -5,7 +5,7 @@ NPO法人タダカヨ公式 3D オープンワールド・プラットフォー�
 
 公開 URL: https://yasushi-honda-prog.github.io/tadakayo-game/
 
-> 開発状態: **Phase 5-B 完了**（物理 + 三人称カメラ + 4 方向スプライト + タダカヨ村ステージ）。次フェーズで Collect / Reach のミッション基盤を実装。
+> 開発状態: **Phase 5-C 完了**（物理 + 三人称カメラ + 4 方向スプライト + タダカヨ村 + ミッション基盤 + Collect/Reach 2 本）。次フェーズで NPC + 会話 + Talk ミッションを実装。
 
 ## 操作
 
@@ -17,7 +17,15 @@ NPO法人タダカヨ公式 3D オープンワールド・プラットフォー�
 | 走る | Shift | （長押し） |
 | ジャンプ | Space / W / ↑ | ジャンプボタン |
 | アクション | E | アクションボタン |
+| ミッション一覧 | M | ミッションアイコン |
 | ポーズ | Esc / P | ポーズアイコン |
+
+## ミッション
+
+| # | タイトル | 種類 | クリア条件 |
+|---|---|---|---|
+| 1 | DXの種を集めよう | Collect | 中央広場・パス沿い・タダレク広場の赤いハートを 10 個取得 |
+| 2 | タダスクの塔へ | Reach | 西の塔の 5 段ジャンプ頂上に到達 |
 
 ## 開発
 
@@ -53,11 +61,12 @@ npm run preview
 | `src/entities/` | `Player`（KinematicCharacterController + sprite 切替）、`Camera`（三人称後方追従） |
 | `src/world/` | ステージ・ワールドの構築（`Village` = タダカヨ村全体: 中央広場・塔・広場・会館・装飾・柵） |
 | `src/input/` | `InputBus`（統一入力）、`KeyboardMouseInput`（PC 入力）、Phase 5-E で `TouchInput` 追加 |
-| `src/ui/` | タイトル画面、HUD、（Phase 5-C 以降）ミッションパネル・会話 |
-| `src/audio/` | Web Audio API での SE/BGM 合成 |
+| `src/ui/` | タイトル画面、HUD（座標＋現在ミッション＋クリア toast）、`MissionPanel`（M キー開閉） |
+| `src/missions/` | `Mission` 抽象基底、`MissionManager`、`CollectMission`／`ReachMission` |
+| `src/audio/` | Web Audio API での SE/BGM 合成（pickup / mission clear / dialog 用 SE 実装済） |
 | `src/config/` | ブランド定数（`brand.ts`）、物理・カメラ・プレイヤー設定（`gameConfig.ts`） |
-| `public/assets/images/` | タダカヨちゃん 4 方向 sprite（12 種）+ ロゴ |
-| `scripts/remove-checker-bg.py` | nano-banana 生成画像のチェッカー柄背景を 4 隅連結成分で透明化 |
+| `public/assets/images/` | タダカヨちゃん 4 方向 sprite（14 種、デザイン統一済）+ ロゴ |
+| `scripts/remove-checker-bg.py` | nano-banana 生成画像のチェッカー柄背景を 4 隅連結成分で透明化（暗チェッカー対応版） |
 
 ## ロードマップ
 
@@ -65,7 +74,7 @@ npm run preview
 |---|---|---|
 | 5-A | Rapier 物理 + 三人称カメラ + テストアリーナ + 4 方向 sprite | ✅ 完了 |
 | 5-B | タダカヨ村ステージ（中央広場 + タダスクの塔 + タダレク広場 + タダコミュ会館 + 装飾 + 柵） | ✅ 完了 |
-| 5-C | ミッション基盤 + Collect / Reach ミッション 2 本 | 🔜 |
+| 5-C | ミッション基盤 + Collect / Reach ミッション 2 本 + MissionPanel + HUD 拡張 | ✅ 完了 |
 | 5-D | NPC + 会話 + Talk ミッション | 🔜 |
 | 5-E | モバイル対応（仮想スティック + ボタン） + 残ミッション | 🔜 |
 | 5-F | 演出 + パフォーマンス（InstancedMesh, code split）+ 仕上げ | 🔜 |

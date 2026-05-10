@@ -9,9 +9,9 @@
 
 ## 開発状態（2026-05-10 時点）
 
-- **Phase 5-B 完了**: タダカヨ村ステージ（中央広場 + タダスクの塔 + タダレク広場 + タダコミュ会館 + 装飾）が `src/world/Village.ts` に集約
-- **次フェーズ**: 5-C ミッション基盤 → 5-D NPC → 5-E モバイル → 5-F 仕上げ
-- 過去の経緯: Phase 0-2 ランナー（main 反映）→ Phase 3-4 ランナー深掘り（PR #4 close でピボット）→ Phase 5-A Rapier 物理 + 三人称カメラ + 4 方向スプライト → Phase 5-B 村ステージ
+- **Phase 5-C 完了**: ミッション基盤 (`src/missions/`) + Collect/Reach 2 本 + MissionPanel (M キー) + HUD 拡張
+- **次フェーズ**: 5-D NPC + 会話 + Talk ミッション → 5-E モバイル → 5-F 仕上げ
+- 過去の経緯: Phase 0-2 ランナー（main 反映）→ 3-4 ランナー深掘り（PR #4 close でピボット）→ 5-A Rapier 物理 + 4 方向スプライト → 5-B 村ステージ → sprite 整合化 (PR #10) → 5-C ミッション基盤
 - ハンドオフ: `docs/handoff/LATEST.md` 参照
 
 ## 公開 URL と base path
@@ -37,17 +37,17 @@
 | Vite 5 + TypeScript 5 | ✓ | ビルド/型 |
 | Noto Sans JP, Web Audio API | ✓ | フォント、音 |
 
-## ディレクトリ構成（Phase 5-A 以降）
+## ディレクトリ構成（Phase 5-C 時点）
 
 ```
 src/
-├── core/         # PhysicsWorld, Game (メインループ)
-├── entities/     # Player, Camera, NPC (5-D), Collectible (5-C)
-├── world/        # TestArena (5-A), Village (5-B)
-├── input/        # InputBus, KeyboardMouseInput, TouchInput (5-E)
-├── ui/           # TitleScreen, HUD, MissionPanel (5-C), DialogBox (5-D), MobileControls (5-E)
-├── missions/     # MissionManager, Mission, missions/* (5-C 以降)
-├── audio/        # AudioManager
+├── core/         # PhysicsWorld, Game (メインループ + MissionManager 統合)
+├── entities/     # Player, Camera, Collectible, NPC (5-D 予定)
+├── world/        # Village (5-B)
+├── input/        # InputBus (move/look/jump/action/run/pause/panel), KeyboardMouseInput, TouchInput (5-E 予定)
+├── ui/           # TitleScreen, HUD (座標+ミッション+toast), MissionPanel (M キー), DialogBox (5-D 予定), MobileControls (5-E 予定)
+├── missions/     # Mission (抽象), MissionManager, missions/{Collect,Reach}Mission, TalkMission (5-D 予定)
+├── audio/        # AudioManager (pickupSE / missionClearSE / dialogSE 実装済)
 ├── config/       # brand.ts, gameConfig.ts (PHYSICS / PLAYER / CAMERA)
 └── styles/main.css
 ```

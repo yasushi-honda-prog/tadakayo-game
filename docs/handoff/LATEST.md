@@ -7,22 +7,22 @@
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`（同期済み、最新コミット `fe7c6d9`）
-- **未マージ PR**: なし（PR #5〜#8 すべて main 反映）
+- **現在ブランチ**: `main`（同期済み、最新コミット `38c0e4f`）
+- **未マージ PR**: なし（PR #5〜#11 すべて main 反映、Deploy 完了）
 
 ## 次セッションで最初にやること
 
 1. `cd /Users/yyyhhh/Projects/tadakayo/game-ai && direnv allow` で `GH_TOKEN` を読み込む
-2. **本番 URL で Phase 5-B 実機操作確認**:
-   - スポーン位置: 中央広場の南手前 (x=0, z=6)、起動直後にロゴモニュメントが正面
-   - WASD で移動、マウスで視点回転
-   - 中央広場のピンク石畳と赤い縁取りが見える
-   - 北のタダコミュ会館（赤屋根）に歩いて行ける、壁を抜けない
-   - 西のタダスクの塔の 5 段を Space ジャンプで登れる、頂上に旗
-   - 東のタダレク広場の噴水・ベンチに到達できる
-   - 街灯・木・ベンチに正しく衝突する
-   - 外周 30m を超えて出られない（柵で落下防止）
-3. 問題なければ **Phase 5-C 着手**（ミッション基盤 + Collect/Reach 2 本）
+2. **本番 URL で Phase 5-B + 5-C 実機操作確認**:
+   - スポーン位置: 中央広場の南手前 (x=0, z=6)
+   - HUD 上部に「現在のミッション DXの種を集めよう 0/10」が表示
+   - WASD で移動 + マウスクリックで視点ロック
+   - **DXの種**（赤いハート）が中央広場周辺・パス沿い・タダレク広場に 10 個浮遊回転
+     - 1 個近づく → SE 鳴動 + 進捗が 1/10 → ... → 10/10 で「クリア！」toast
+   - **タダスクの塔へ**: 西の塔 (-18, 4) の 5 段ジャンプを Space で登る → 頂上で「クリア！」toast
+   - **M キー** でミッションパネル開閉、active/completed 表示確認
+   - 街灯・木・ベンチに正しく衝突、外周 30m 柵で落下防止
+3. 問題なければ **Phase 5-D 着手**（NPC + 会話 + Talk ミッション 1 本）
 
 ## これまでの経緯
 
@@ -36,91 +36,93 @@
 | 5-A 拡張 | 4 方向スプライト 12 枚 + Player 多方向切替 + バグ修正 3 件 | ✅ PR #6 main 反映 |
 | 5-A 文書 | README/CLAUDE.md 更新 + ピボット ADR | ✅ PR #7 main 反映 |
 | 5-B | タダカヨ村ステージ構築（中央広場 + 塔 + 広場 + 会館 + 装飾） | ✅ PR #8 main 反映 |
-| 5-C | ミッション基盤 + Collect/Reach 2 本 | 🔜 次セッション |
-| 5-D | NPC + 会話 + Talk ミッション 1 本 | 🔜 |
+| 5-B 文書 | README/CLAUDE.md/ハンドオフ更新 | ✅ PR #9 main 反映 |
+| sprite 整合化 | 14 枚を統一スタイルで再生成 + remove-checker-bg 改良 | ✅ PR #10 main 反映 |
+| 5-C | ミッション基盤 + Collect/Reach 2 本 + MissionPanel + HUD 拡張 | ✅ PR #11 main 反映 |
+| 5-D | NPC + 会話 + Talk ミッション 1 本 | 🔜 次セッション |
 | 5-E | モバイル対応（仮想スティック + ボタン）+ 残ミッション | 🔜 |
 | 5-F | 演出 + パフォーマンス + 仕上げ | 🔜 |
 
 詳細プラン: `/Users/yyyhhh/.claude/plans/yasushi-honda-prog-github-githubpages-us-transient-summit.md`
 
-## Phase 5-B でできた村の構造
+## Phase 5-C で追加された Mission 基盤
 
-### レイアウト（俯瞰、+X 東 / +Z 南、原点が中央広場の中心）
-
-```
-                      +Z 北
-                 タダコミュ会館
-                  (0, -22)
-                 [白壁8x4x8 + 赤屋根]
-
-
-    タダスクの塔     中央広場     タダレク広場
-     (-18, 4)        (0, 0)         (18, 4)
-     [5段ジャンプ    [ピンク石畳    [8x8床+噴水
-      頂上に旗]      直径16m]       +ベンチ2]
-
-                      SPAWN
-                      (0,4,6)
-                      -Z 南
-```
-
-外周 30m 四方の柵で落下防止、中央広場 ↔ 各エリアを淡いベージュのパスで接続。
-
-### Phase 5-C で参照する公開座標
-
-`Village.landmarks` で以下を公開（`MissionManager` の入力として使う）:
-
-```ts
-landmarks = {
-  plazaCenter: Vector3(0, 0, 0),
-  towerTop:    Vector3(-18, ~3.6, ~-4.8),
-  rekuCenter:  Vector3(18, 0.2, 4),
-  hallEntrance: Vector3(0, 0, -17.5),
-}
-```
-
-## Phase 5-C 着手プラン（次セッション最初の作業）
-
-新規ディレクトリ・ファイル:
+### ディレクトリ
 
 ```
 src/missions/
-├── Mission.ts              # 抽象 base クラス: id, title, description, check(state), progress, isCleared
-├── MissionManager.ts       # active/completed リスト、HUD 更新ブリッジ
+├── Mission.ts              # 抽象 base + MissionContext (不変スナップショット)
+├── MissionManager.ts       # active/completed + onChange/onCleared
 └── missions/
-    ├── CollectMission.ts   # 「DXの種を集めよう」ハート 10 個
-    └── ReachMission.ts     # 「タダスクの塔へ」towerTop 到達
-src/entities/Collectible.ts # 静的配置のハート、近接で取得イベント
-src/ui/MissionPanel.ts      # ミッション詳細パネル（M キーで開閉）
-src/ui/HUD.ts               # 既存に「現在ミッション + 進捗 X/N」を追加
+    ├── CollectMission.ts   # Collectible 配列を集計、全取得でクリア
+    └── ReachMission.ts     # XZ 距離 + Y tolerance で目標到達判定
+src/entities/Collectible.ts # 浮遊回転ハート (球+円錐)、近接 0.9m で取得
+src/ui/MissionPanel.ts      # M キー開閉 modal、active/completed 一覧
+src/ui/HUD.ts               # 現在ミッション + 進捗 X/N + クリア toast
 ```
 
-ミッション 1: 中央広場・タダレク広場・タダスクの塔の周囲に Heart を 10 個配置、近接で取得。
-ミッション 2: `landmarks.towerTop` の半径 1.5m 以内で発火、クリアで HUD に「クリア！」表示。
+### Mission base 拡張パターン (Phase 5-D 設計の鍵)
+
+`src/missions/Mission.ts` の docstring に明記済みの 3 パターン:
+1. **位置駆動** (ReachMission): 毎フレーム `ctx.playerPosition` で判定
+2. **収集駆動** (CollectMission): 外部 entity (Collectible) を集計
+3. **イベント駆動** (TalkMission, 5-D で実装): NPC.onTalk から `mission.notifyEvent()` を呼んで `current` 加算。`update(ctx)` は no-op。
+
+`MissionContext.playerPosition` は **`Readonly<{x,y,z}>` の不変スナップショット**（PR #11 codex review Medium 対応で Vector3 mutation 経路を断った）。
+
+## Phase 5-D 着手プラン（次セッション）
+
+新規ファイル:
+
+```
+src/entities/NPC.ts                  # ビルボード sprite + 近接 trigger + onTalk emit
+src/missions/missions/TalkMission.ts # 訪問済み NPC ID set を集計
+src/ui/DialogBox.ts                  # 吹き出し UI、E キー/タップで進行
+public/assets/images/
+├── npc-elder.png                    # 高齢者 NPC (nano-banana 生成)
+├── npc-nurse.png                    # 看護師 NPC
+└── npc-manager.png                  # 施設長 NPC
+```
+
+NPC 配置案:
+- 高齢者: タダレク広場のベンチ近く `(18 - 2.6, 0, 4)`
+- 看護師: タダコミュ会館の入口 `landmarks.hallEntrance`
+- 施設長: 中央広場の南東 `(3, 0, 3)`
+
+ミッション: 「現場の声を聞こう」= 全 3 NPC と E キーで会話。
+
+NPC.onTalk から TalkMission.notifyTalked(npcId) を呼ぶ。Mission の cleared 判定は visitedIds.size >= 3。
+
+入力: E キー (action) で近接 NPC があれば dialog 開始 → DialogBox が次の line を表示 → 最後で onTalk 発火。
 
 ## アーキテクチャ概要
 
 ```
 src/
 ├── core/
-│   ├── PhysicsWorld.ts     # Rapier WASM ラッパー、async create()
-│   └── Game.ts             # メインループ、固定タイムステップ、シーン統合
+│   ├── PhysicsWorld.ts     # Rapier WASM ラッパー
+│   └── Game.ts             # メインループ + MissionManager 統合
 ├── entities/
-│   ├── Player.ts           # KinematicCharacterController + 4 方向 sprite 切替
-│   └── Camera.ts           # 三人称後方追従、yaw/pitch 入力、lerp 補間
-├── world/
-│   └── Village.ts          # タダカヨ村全体（中央広場/塔/広場/会館/装飾/柵）
+│   ├── Player.ts           # KinematicCharacterController + 4 方向 sprite
+│   ├── Camera.ts           # 三人称後方追従、yaw/pitch
+│   ├── Collectible.ts      # ハート (浮遊回転 + 近接トリガ)
+│   └── NPC.ts              # 5-D 新規
+├── world/Village.ts        # タダカヨ村全体
+├── missions/               # 5-C で追加した Mission 基盤
+│   ├── Mission.ts
+│   ├── MissionManager.ts
+│   └── missions/{Collect,Reach,Talk}Mission.ts
 ├── input/
-│   ├── InputBus.ts         # 統一入力バス（move/look/jump/action/run/pause）
-│   └── KeyboardMouseInput.ts  # WASD + Pointer Lock + Space + E + Shift
+│   ├── InputBus.ts         # move/look/jump/action/run/pause/panel
+│   └── KeyboardMouseInput.ts  # WASD + Space + E + M + Shift + Pointer Lock
 ├── ui/
-│   ├── TitleScreen.ts      # スタート画面
-│   └── HUD.ts              # 座標表示（5-C でミッション表示に拡張予定）
-├── audio/AudioManager.ts   # Web Audio 合成 SE/BGM
-├── config/
-│   ├── brand.ts            # ブランドカラー
-│   └── gameConfig.ts       # PHYSICS / PLAYER / CAMERA 定数（SPAWN は中央広場手前）
-└── main.ts                 # async ブートストラップ
+│   ├── TitleScreen.ts
+│   ├── HUD.ts              # 座標 + 現在ミッション + 進捗 + toast
+│   ├── MissionPanel.ts     # M キー開閉
+│   └── DialogBox.ts        # 5-D 新規
+├── audio/AudioManager.ts   # SE/BGM 合成 (pickupSE / missionClearSE / dialogSE 実装済)
+├── config/{brand,gameConfig}.ts
+└── main.ts
 ```
 
 ## 重要文脈・ユーザー要求
@@ -132,6 +134,7 @@ src/
   - エンドレスランナー（タイミングストレス、単調）
   - 圧縮しゃがみ（雑なモーション）
   - 矢印アイコンが手前で巨大化（空間表現として違和感）
+- **本セッションで対応**: 14 枚スプライトの服装・足元・顔つきの整合性を統一プロンプト再生成で復旧 (PR #10)
 
 ## アカウント・認証
 
@@ -139,6 +142,13 @@ src/
 - `.envrc` で `GH_TOKEN` をローカル閉じ込め（direnv allow 済）
 - グローバル `gh auth switch` は **しない**
 - git identity も `--local` で `yasushi-honda-prog` 名義
+- nano-banana (Vertex AI / Gemini 3.1 Flash Image) は `gcloud auth print-access-token --account=hy.unimail.11@gmail.com` で取得した user account token を使う（skill 規定 + Phase 2/5-A/5-sprite で同パターン）
+
+### nano-banana 利用時の注意（PR #10 で蓄積した運用知）
+
+- 連続生成は 6 秒間隔でも 5-6 枚で 429 (quota exhaust) に遭遇する。**実用は 12-15 秒間隔 + リトライ (15→30→60s exponential backoff)** が安全
+- 14 枚一括生成は 7-8 分かかる前提。run_in_background で
+- AI が暗いチェッカー柄背景を描く画像があり、`scripts/remove-checker-bg.py` の旧版 (`r >= 180` 閾値) では透明化失敗。改良版 (透明 + 純黒 + 明灰を bg_candidate) で対応済み
 
 ## リポジトリ設定の積み残し（次回ユーザー判断）
 
@@ -151,17 +161,17 @@ src/
 
 ## 残留プロセス
 
-- vite dev server は今セッション末で停止済み。確認するには:
+- vite dev server は今セッション末で停止済み。確認:
   ```bash
   ~/.claude/scripts/cleanup-node.sh
   ```
 
 ## 既知の制約
 
-- bundle size 2.7 MB (gzip 963 KB) — Rapier WASM が大半。Phase 5-F で code split 検討
+- bundle size 2.74 MB (gzip 965.5 KB) — Rapier WASM が大半。Phase 5-F で code split 検討
 - iOS Safari は Pointer Lock が限定的サポート → モバイル操作は Phase 5-E で仮想スティック実装予定
 - favicon.ico 404（実害なし、Phase 5-F でファビコン追加）
-- キャラクター sprite が裸足（プロンプトに `shoes` 含めなかった）— Phase 5-F で再生成予定
+- DXの種 (Heart) は球 2 + 円錐の幾何形状。Phase 5-F で nano-banana の専用テクスチャに差し替え検討
 
 ## 公式作品としての位置づけ
 
