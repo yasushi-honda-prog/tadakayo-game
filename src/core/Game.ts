@@ -4,15 +4,18 @@ import { Player } from "../entities/Player";
 import { ThirdPersonCamera } from "../entities/Camera";
 import { Village } from "../world/Village";
 import { Collectible } from "../entities/Collectible";
+import { NPC } from "../entities/NPC";
 import { InputBus } from "../input/InputBus";
 import { KeyboardMouseInput } from "../input/KeyboardMouseInput";
 import { AudioManager } from "../audio/AudioManager";
 import { TitleScreen } from "../ui/TitleScreen";
 import { HUD } from "../ui/HUD";
 import { MissionPanel } from "../ui/MissionPanel";
+import { DialogBox } from "../ui/DialogBox";
 import { MissionManager } from "../missions/MissionManager";
 import { CollectMission } from "../missions/missions/CollectMission";
 import { ReachMission } from "../missions/missions/ReachMission";
+import { TalkMission } from "../missions/missions/TalkMission";
 import { BRAND_HEX } from "../config/brand";
 import { PHYSICS } from "../config/gameConfig";
 
@@ -33,8 +36,14 @@ export class Game {
   private readonly titleScreen: TitleScreen;
   private readonly hud: HUD;
   private readonly missionPanel: MissionPanel;
+  private readonly dialogBox: DialogBox;
   private readonly missions: MissionManager;
   private readonly collectibles: Collectible[] = [];
+  private readonly npcs: NPC[] = [];
+  private talkMission: TalkMission | null = null;
+  private nearestInteractableNpc: NPC | null = null;
+  private readonly actionHintEl: HTMLElement;
+  private readonly actionHintTargetEl: HTMLElement;
 
   private accumulator = 0;
   private lastTime = 0;
@@ -87,6 +96,13 @@ export class Game {
     });
     this.hud = new HUD();
     this.missionPanel = new MissionPanel();
+    this.dialogBox = new DialogBox();
+
+    const hint = document.getElementById("hud-action-hint");
+    const hintTarget = document.getElementById("hud-action-target");
+    if (!hint || !hintTarget) throw new Error("hud-action-hint 要素が見つかりません");
+    this.actionHintEl = hint;
+    this.actionHintTargetEl = hintTarget;
 
     // ミッション基盤
     this.missions = new MissionManager();
@@ -96,6 +112,8 @@ export class Game {
       if (event === "panel") {
         this.missionPanel.toggle();
         if (this.missionPanel.isOpen()) this.missionPanel.render(this.missions.all);
+      } else if (event === "action") {
+        this.handleActionPress();
       }
     });
     this.missions.onChange(() => this.refreshMissionUI());
@@ -105,6 +123,67 @@ export class Game {
     });
 
     this.titleScreen.show();
+  }
+
+  /**
+   * E キー (action) 押下時のディスパッチ:
+   * - DialogBox が開いていれば advance() して次の line へ
+   * - 閉じていて最寄りの interactable NPC があれば会話開始
+   * - それ以外は何もしない
+   */
+  private handleActionPress(): void {
+    if (!this.playing) return;
+    if (this.dialogBox.isVisible()) {
+      this.audio.dialogSE();
+      this.dialogBox.advance();
+      return;
+    }
+    const npc = this.nearestInteractableNpc;
+    if (npc !== null) this.startNpcTalk(npc);
+  }
+
+  private startNpcTalk(npc: NPC): void {
+    npc.startTalk();
+    this.hideActionHint();
+    this.audio.dialogOpenSE();
+    this.dialogBox.open(npc.displayName, npc.lines, () => {
+      // 会話完了: TalkMission に通知 + NPC を idle に戻す
+      npc.endTalk();
+      if (this.talkMission !== null) this.talkMission.notifyTalked(npc.id);
+      // notifyTalked が状態変えても MissionManager.update のループ外なので
+      // 進捗反映用に手動で onChange 相当を呼ぶ (foreground 切替反映)
+      this.refreshMissionUI();
+    });
+  }
+
+  private updateNpcsAndHint(playerPos: THREE.Vector3, dt: number): void {
+    const playerSnap = { x: playerPos.x, y: playerPos.y, z: playerPos.z };
+    let nearest: NPC | null = null;
+    let nearestDist = Infinity;
+    for (const npc of this.npcs) {
+      npc.updateProximity(playerSnap, dt);
+      if (npc.isInteractable()) {
+        const dx = playerPos.x - npc.position.x;
+        const dz = playerPos.z - npc.position.z;
+        const d = Math.hypot(dx, dz);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearest = npc;
+        }
+      }
+    }
+    this.nearestInteractableNpc = nearest;
+
+    if (nearest !== null && !this.dialogBox.isVisible()) {
+      this.actionHintTargetEl.textContent = `で ${nearest.displayName} と話す`;
+      this.actionHintEl.classList.remove("hidden");
+    } else {
+      this.hideActionHint();
+    }
+  }
+
+  private hideActionHint(): void {
+    this.actionHintEl.classList.add("hidden");
   }
 
   start(): void {
@@ -140,6 +219,9 @@ export class Game {
 
       // Collectible アニメ (浮遊・回転)
       for (const c of this.collectibles) c.animate(dt);
+
+      // NPC 近接判定 + 「E で話す」ヒント更新
+      this.updateNpcsAndHint(this.player.position, dt);
 
       this.hud.update({
         x: this.player.position.x,
@@ -195,8 +277,73 @@ export class Game {
       radius: 1.8,
     });
 
+    // Phase 5-D: NPC 3 体 + Talk ミッション「現場の声を聞こう」
+    this.setupNpcs();
+    const talkMission = new TalkMission({
+      id: "talk-three-voices",
+      title: "現場の声を聞こう",
+      description:
+        "タダカヨ村にいる 3 人の住人 (利用者・看護師・施設長) と E キーで話してみましょう。介護現場のリアルな声が、DX のヒントになります。",
+      requiredNpcIds: this.npcs.map((n) => n.id),
+    });
+    this.talkMission = talkMission;
+
     this.missions.start(collectMission);
     this.missions.start(reachMission);
+    this.missions.start(talkMission);
+  }
+
+  /**
+   * Phase 5-D の NPC 3 体を村に配置する。
+   * - 高齢者: タダレク広場のベンチ近く (15.4, 0, 4)
+   * - 看護師: タダコミュ会館の入口前 (landmarks.hallEntrance)
+   * - 施設長: 中央広場の南東 (3, 0, 3)
+   */
+  private setupNpcs(): void {
+    const elderPos = new THREE.Vector3(15.4, 0, 4);
+    const nursePos = this.village.landmarks.hallEntrance.clone();
+    const managerPos = new THREE.Vector3(3, 0, 3);
+
+    const elder = new NPC({
+      id: "elder",
+      displayName: "タダさん（利用者）",
+      spriteName: "npc-elder",
+      position: elderPos,
+      lines: [
+        "いやあ、最近のスマホは便利だねえ。",
+        "孫の写真を見られるのが何より楽しみだよ。",
+        "あんたみたいな若い人が、私たちのことを考えてくれるのは嬉しいねえ。",
+      ],
+    });
+
+    const nurse = new NPC({
+      id: "nurse",
+      displayName: "カヨさん（看護師）",
+      spriteName: "npc-nurse",
+      position: nursePos,
+      lines: [
+        "お疲れさまです。日々の記録、書くのに時間がかかって大変なんです。",
+        "音声入力やテンプレートがもう少し使いやすくなったら、利用者さんと向き合う時間が増えると思います。",
+        "現場の声を聞いてもらえるのは本当にありがたいです。",
+      ],
+    });
+
+    const manager = new NPC({
+      id: "manager",
+      displayName: "ヨシオさん（施設長）",
+      spriteName: "npc-manager",
+      position: managerPos,
+      lines: [
+        "タダカヨ村へようこそ。私はこの施設の運営を任されています。",
+        "DX というと難しく聞こえますが、要は職員の負担を減らして利用者さんとの時間を増やすこと。",
+        "現場主導で考えてくれる仲間が増えると、本当に心強いですよ。",
+      ],
+    });
+
+    for (const n of [elder, nurse, manager]) {
+      this.npcs.push(n);
+      this.scene.add(n.object);
+    }
   }
 
   private refreshMissionUI(): void {
@@ -236,6 +383,7 @@ export class Game {
     this.camera.dispose();
     this.village.dispose();
     for (const c of this.collectibles) c.dispose();
+    for (const n of this.npcs) n.dispose();
     this.missions.dispose();
     this.audio.dispose();
     this.renderer.dispose();

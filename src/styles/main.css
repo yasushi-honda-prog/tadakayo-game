@@ -60,11 +60,18 @@ html, body {
   visibility: hidden;
 }
 
-/* HUD 内の個別ピル (mission / toast) は display:none で完全に隠す。
+/* HUD 内の個別ピル (mission / toast / action-hint) は display:none で完全に隠す。
    `.hud.hidden` の opacity transition と独立して個別表示を制御する。 */
 .hud-mission.hidden,
-.hud-toast.hidden {
+.hud-toast.hidden,
+.hud-action-hint.hidden {
   display: none !important;
+}
+
+.dialog-box.hidden {
+  opacity: 0;
+  pointer-events: none !important;
+  visibility: hidden;
 }
 
 .screen {
@@ -264,6 +271,107 @@ html, body {
   0% { transform: scale(0.6); opacity: 0; }
   60% { transform: scale(1.08); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+/* NPC 近接時の「E で話しかける」ヒント（HUD 中央下） */
+.hud-action-hint {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid var(--brand-primary);
+  border-radius: 999px;
+  padding: 6px 14px 6px 6px;
+  box-shadow: var(--shadow-sm);
+  margin-top: 18vh;
+  font-size: clamp(13px, 2.6vw, 15px);
+  color: var(--brand-black);
+  font-weight: 700;
+  animation: actionHintPulse 1.4s ease-in-out infinite;
+}
+
+.hud-action-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--brand-primary);
+  color: var(--brand-white);
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+@keyframes actionHintPulse {
+  0%, 100% { transform: translateY(0); opacity: 0.85; }
+  50% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* Dialog box (NPC 会話) */
+.dialog-box {
+  position: absolute;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  padding: 0 16px;
+  transition: opacity 0.18s ease;
+  z-index: 5;
+}
+
+.dialog-card {
+  background: rgba(255, 255, 255, 0.97);
+  border: 3px solid var(--brand-primary);
+  border-radius: var(--radius);
+  padding: 14px 22px 12px;
+  width: min(640px, 92vw);
+  box-shadow: var(--shadow-md);
+  position: relative;
+}
+
+.dialog-header {
+  margin-bottom: 6px;
+}
+
+.dialog-speaker {
+  display: inline-block;
+  background: var(--brand-pink);
+  color: var(--brand-primary);
+  font-size: 13px;
+  font-weight: 900;
+  padding: 4px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.06em;
+}
+
+.dialog-body {
+  font-size: clamp(14px, 2.6vw, 16px);
+  line-height: 1.7;
+  color: var(--brand-black);
+  min-height: 3.4em;
+  margin: 8px 0 6px;
+  white-space: pre-wrap;
+  font-weight: 500;
+}
+
+.dialog-hint {
+  text-align: right;
+  font-size: 11px;
+  color: var(--brand-primary);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+  animation: dialogHintBlink 1.2s ease-in-out infinite;
+}
+
+@keyframes dialogHintBlink {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 /* Mission panel (modal overlay) */

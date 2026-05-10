@@ -4,6 +4,11 @@ AI が「透明背景」を「チェッカー柄＝透明の表現」として�
 4 隅から連結成分で外側のチェッカー柄領域のみ alpha=0 にする。
 キャラ内側の白色（歯、靴のハイライト等）は別連結成分なので保護される。
 
+**靴保護ロジック (2026-05-10 追加)**:
+白いスニーカーが地面接地点で外周バリアを抜けて背景連結成分に含まれてしまうバグ
+への対処。bg_mask を作った後、character 領域を膨張させて「キャラの近接にある
+背景判定ピクセル」(=靴の中身) を救済する。
+
 Usage:
   python3 scripts/remove-checker-bg.py public/assets/images/*.png
 """
@@ -14,7 +19,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import label  # type: ignore[import-untyped]
+from scipy.ndimage import binary_dilation, label  # type: ignore[import-untyped]
 
 
 def remove_checker_bg(path: Path) -> tuple[int, int]:
@@ -51,6 +56,15 @@ def remove_checker_bg(path: Path) -> tuple[int, int]:
         return 0, h * w
 
     bg_mask = np.isin(labeled, list(corner_labels))
+
+    # 靴保護: character 領域を 12px 膨張させて「キャラの中に取り囲まれた背景判定ピクセル」を救済。
+    # 元から alpha=0 だったピクセル (= AI が明示的に透過と意図) は救済対象外
+    # (チェッカー柄キャンバスの外周透明帯がキャラ内部に入り込むことはない)。
+    char_mask = ~bg_mask & ~is_already_transparent
+    char_dilated = binary_dilation(char_mask, iterations=12)
+    inside_char = bg_mask & char_dilated & ~is_already_transparent
+    bg_mask = bg_mask & ~inside_char
+
     arr[bg_mask, 3] = 0
 
     Image.fromarray(arr).save(path, optimize=True)
