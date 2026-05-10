@@ -18,7 +18,7 @@ export interface InputState {
   running: boolean;
 }
 
-export type InputEvent = "jump" | "action" | "pause";
+export type InputEvent = "jump" | "action" | "pause" | "panel";
 
 type Listener = (event: InputEvent) => void;
 
