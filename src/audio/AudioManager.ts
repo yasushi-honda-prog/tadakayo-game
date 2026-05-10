@@ -36,6 +36,8 @@ export class AudioManager {
   private buffers: Partial<Record<SoundKey, AudioBuffer>> = {};
   private bgmBuffer: AudioBuffer | null = null;
   private bgmSource: AudioBufferSourceNode | null = null;
+  /** startBgm() が bgmBuffer 未 decode で空振りした時、preloadAll 完了後に自動再生するためのフラグ */
+  private bgmPendingStart = false;
 
   constructor() {
     const stored = localStorage.getItem(STORAGE_KEYS.AUDIO_MUTED);
@@ -89,6 +91,11 @@ export class AudioManager {
       this.bgmBuffer = buf;
     }));
     await Promise.all(tasks);
+    // BGM の startBgm() が decode 未完で空振りしていた場合、ここで遅延再生
+    if (this.bgmPendingStart && this.bgmBuffer && this.bgmSource === null) {
+      this.bgmPendingStart = false;
+      this.startBgm();
+    }
   }
 
   private async loadBuffer(url: string): Promise<AudioBuffer | null> {
@@ -151,11 +158,16 @@ export class AudioManager {
   dialogOpenSE(): void { this.playBuffer("dialogOpen", 0.8); }
 
   /**
-   * BGM ループ再生開始。bgmBuffer が未 decode なら何もしない (preloadAll が
-   * 完了次第、次の startBgm() で再生される)。
+   * BGM ループ再生開始。bgmBuffer が未 decode の場合は `bgmPendingStart` を
+   * 立てて return し、preloadAll() 完了時に自動的に再生開始する (BGM サイレント
+   * 化を防ぐ)。
    */
   startBgm(): void {
-    if (!this.ctx || !this.bgmGain || !this.bgmBuffer || this.bgmSource !== null) return;
+    if (!this.ctx || !this.bgmGain || this.bgmSource !== null) return;
+    if (!this.bgmBuffer) {
+      this.bgmPendingStart = true;
+      return;
+    }
     const src = this.ctx.createBufferSource();
     src.buffer = this.bgmBuffer;
     src.loop = true;
@@ -165,6 +177,7 @@ export class AudioManager {
   }
 
   stopBgm(): void {
+    this.bgmPendingStart = false;
     if (this.bgmSource) {
       try { this.bgmSource.stop(0); } catch { /* already stopped */ }
       this.bgmSource.disconnect();

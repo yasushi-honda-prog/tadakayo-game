@@ -139,6 +139,10 @@ export class NPC {
   }
 
   dispose(): void {
+    // THREE.Sprite は内部 BufferGeometry を持つため明示的に解放
+    // (Phase 5-D 時点では NPC 動的生成/削除はないが、Phase 5-E 以降で必要になる)
+    this.sprite.geometry.dispose();
+    this.glowSprite.geometry.dispose();
     this.texture.dispose();
     this.material.dispose();
     this.glowMaterial.dispose();

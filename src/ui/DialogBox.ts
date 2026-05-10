@@ -67,7 +67,14 @@ export class DialogBox {
     return this.opened;
   }
 
-  /** 強制的に閉じる (ポーズ等で使う想定、Phase 5-D 時点では未使用) */
+  /**
+   * 強制的に閉じる (ポーズ等で使う想定、Phase 5-D 時点では未使用)。
+   *
+   * **責務注意**: forceClose は onComplete を発火しないため、呼び出し側 (Game) は
+   * 「会話中の NPC を idle に戻す」「TalkMission に進捗加算しない」等の状態復帰を
+   * 別経路で行う必要がある。Phase 5-E でポーズ画面を実装する際は、Game 側で
+   * `npc.endTalk()` を併用すること。
+   */
   forceClose(): void {
     if (!this.opened) return;
     this.close();
