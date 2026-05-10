@@ -5,20 +5,28 @@ import type { PhysicsWorld } from "../core/PhysicsWorld";
 import type { InputBus } from "../input/InputBus";
 import type { ThirdPersonCamera } from "./Camera";
 
-type Pose = "idle" | "run" | "jump";
+type Direction = "front" | "back" | "side";
+type Pose = "idle" | "run" | "jump" | "crouch";
+
+/**
+ * sprite テクスチャの 4 方向 × 4 アクション辞書。
+ * - side は left/right 共用（描画時に sprite.scale.x で flip）
+ * - front/back に crouch が無いケースは side-crouch で代用
+ */
+type SpriteSet = Record<Direction, Partial<Record<Pose, THREE.Texture>>>;
 
 /**
  * プレイヤー（タダカヨちゃん）。
  * - Rapier KinematicCharacterController で物理駆動
- * - 自前で重力＋ジャンプ垂直速度を管理（character controller は移動量を補正するだけ）
- * - 4 方向ビルボードスプライト（カメラ角度に応じて front/back/side テクスチャ + 左右反転）
+ * - 自前で重力 + ジャンプ垂直速度を管理
+ * - カメラ角度に応じた 4 方向ビルボードスプライト切替
  */
 export class Player {
   readonly object: THREE.Group;
   readonly position = new THREE.Vector3();
   private readonly sprite: THREE.Sprite;
   private readonly material: THREE.SpriteMaterial;
-  private readonly textures: Record<Pose, THREE.Texture>;
+  private readonly textures: SpriteSet;
   private readonly body: RAPIER.RigidBody;
   private readonly collider: RAPIER.Collider;
   private readonly cc: RAPIER.KinematicCharacterController;
@@ -29,7 +37,8 @@ export class Player {
   private grounded = false;
   private coyoteTimer = 0;
   private jumpBufferTimer = 0;
-  private facingYaw = 0; // キャラの向き（移動方向に追従）
+  /** キャラの向き（移動方向に追従。未移動ならカメラ前方向） */
+  private facingYaw = 0;
 
   constructor(physics: PhysicsWorld, bus: InputBus) {
     this.physics = physics;
@@ -45,39 +54,56 @@ export class Player {
     this.collider = cap.collider;
     this.cc = physics.createCharacterController(0.01);
 
-    // 描画
+    // 描画 (sprite ビルボード)
     this.object = new THREE.Group();
-    const loader = new THREE.TextureLoader();
-    const base = import.meta.env.BASE_URL;
-    this.textures = {
-      idle: loader.load(`${base}assets/images/tadakayo-run.png`),
-      run: loader.load(`${base}assets/images/tadakayo-run.png`),
-      jump: loader.load(`${base}assets/images/tadakayo-jump.png`),
-    };
-    for (const tex of Object.values(this.textures)) {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-    }
+    this.textures = this.loadTextures();
     this.material = new THREE.SpriteMaterial({
-      map: this.textures.idle,
+      map: this.textures.front.idle ?? this.textures.front.run,
       transparent: true,
       depthWrite: false,
     });
     this.sprite = new THREE.Sprite(this.material);
     this.sprite.scale.set(PLAYER.SPRITE_SIZE.width, PLAYER.SPRITE_SIZE.height, 1);
-    this.sprite.position.y = PLAYER.SPRITE_SIZE.height / 2;
+    this.sprite.position.y = PLAYER.SPRITE_SIZE.height / 2 - 0.05;
     this.object.add(this.sprite);
 
-    // ジャンプ入力イベント受信
     bus.on((event) => {
       if (event === "jump") this.jumpBufferTimer = PLAYER.JUMP_BUFFER_SEC;
     });
   }
 
-  /** 物理＋移動の更新。dt は実時間秒、camera は入力方向の基準 */
+  private loadTextures(): SpriteSet {
+    const loader = new THREE.TextureLoader();
+    const base = import.meta.env.BASE_URL;
+    const load = (name: string): THREE.Texture => {
+      const tex = loader.load(`${base}assets/images/${name}.png`);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      return tex;
+    };
+    return {
+      front: {
+        idle: load("tadakayo-front-idle"),
+        run: load("tadakayo-run"),
+        jump: load("tadakayo-jump"),
+      },
+      back: {
+        idle: load("tadakayo-back-idle"),
+        run: load("tadakayo-back-run"),
+        jump: load("tadakayo-back-jump"),
+      },
+      side: {
+        idle: load("tadakayo-side-idle"),
+        run: load("tadakayo-side-run"),
+        jump: load("tadakayo-side-jump"),
+        crouch: load("tadakayo-side-crouch"),
+      },
+    };
+  }
+
   update(dt: number, camera: ThirdPersonCamera): void {
-    // 入力 → ワールド XZ ベクトル（カメラ基準）
+    // 入力 → ワールド XZ ベクトル
     const forward = camera.getForwardXZ();
     const right = camera.getRightXZ();
     const move = new THREE.Vector3();
@@ -87,7 +113,7 @@ export class Player {
     if (moveLen > 1) move.divideScalar(moveLen);
 
     const speed = this.bus.state.running ? PLAYER.RUN_SPEED : PLAYER.MOVE_SPEED;
-    const horiz = move.multiplyScalar(speed * dt);
+    const horiz = move.clone().multiplyScalar(speed * dt);
 
     // 縦方向: 重力 + ジャンプ
     if (this.grounded) {
@@ -114,53 +140,67 @@ export class Player {
     const corrected = this.cc.computedMovement();
     this.grounded = this.cc.computedGrounded();
 
-    // RigidBody を新しい位置へ
     const cur = this.body.translation();
     const next = { x: cur.x + corrected.x, y: cur.y + corrected.y, z: cur.z + corrected.z };
     this.body.setNextKinematicTranslation(next);
 
-    // Three オブジェクトの位置を同期
     this.position.set(next.x, next.y, next.z);
     this.object.position.copy(this.position);
-    // sprite 中心はカプセル中心。スプライト下端を足元に揃えるため Y は 0 のまま
-    this.sprite.position.y = 0;
 
-    // 走り中は微振動
-    if (this.grounded && moveLen > 0.05) {
-      this.sprite.position.y = Math.sin(performance.now() * 0.018) * 0.04;
+    // キャラの向き（移動方向に追従）
+    if (moveLen > 0.1) {
+      this.facingYaw = Math.atan2(move.x, move.z);
     }
 
-    // ポーズ判定 + ビルボード方向
-    this.updatePose(moveLen, this.grounded, camera.getYaw(), move);
+    // ポーズ + 方向 → テクスチャ + flip
+    this.applyDirectionalSprite(moveLen, camera.getYaw());
+
+    // 走り中の足音的な微振動（接地時のみ）
+    const baseY = PLAYER.SPRITE_SIZE.height / 2 - 0.05;
+    if (this.grounded && moveLen > 0.05) {
+      this.sprite.position.y = baseY + Math.sin(performance.now() * 0.018) * 0.04;
+    } else {
+      this.sprite.position.y = baseY;
+    }
   }
 
-  private updatePose(moveLen: number, grounded: boolean, cameraYaw: number, moveDir: THREE.Vector3): void {
+  /** カメラとキャラの相対角度から方向を判定し、テクスチャ + 反転を反映 */
+  private applyDirectionalSprite(moveLen: number, cameraYaw: number): void {
     let pose: Pose;
-    if (!grounded) pose = "jump";
+    if (!this.grounded) pose = "jump";
     else if (moveLen > 0.05) pose = "run";
     else pose = "idle";
 
-    if (this.material.map !== this.textures[pose]) {
-      this.material.map = this.textures[pose];
+    // 移動してない時はカメラから見て「向こう（背中）」を向く（=back）
+    let rel = this.facingYaw - cameraYaw;
+    while (rel > Math.PI) rel -= Math.PI * 2;
+    while (rel < -Math.PI) rel += Math.PI * 2;
+
+    let dir: Direction;
+    let flipX = false;
+    const abs = Math.abs(rel);
+    if (abs < Math.PI / 4) {
+      dir = "back"; // キャラの向き ≈ カメラの向き → 背中が見える
+    } else if (abs > (Math.PI * 3) / 4) {
+      dir = "front"; // 反対 → 顔が見える
+    } else {
+      dir = "side";
+      flipX = rel < 0; // 右プロファイル sprite を左向きにするとき反転
+    }
+
+    // テクスチャ取得（フォールバック: pose が無ければ idle、それも無ければ side の同 pose）
+    const tex =
+      this.textures[dir][pose] ??
+      this.textures[dir].idle ??
+      this.textures.side[pose] ??
+      this.textures.front.run!;
+    if (this.material.map !== tex) {
+      this.material.map = tex;
       this.material.needsUpdate = true;
     }
 
-    // 移動方向にキャラの向きを追従（描画用：sprite なのでテクスチャ反転で対応）
-    if (moveLen > 0.1) {
-      const dirYaw = Math.atan2(moveDir.x, moveDir.z);
-      this.facingYaw = dirYaw;
-    }
-    // カメラ視点に対するキャラの向き角度差
-    const rel = this.facingYaw - cameraYaw;
-    // 右向き（rel > 0 で +X 方向 = 画面の右） → そのまま、反対なら反転
-    this.material.rotation = 0;
-    // 簡易表現: カメラから見て右へ動くときは flip しない、左で flip
-    const facingRight = Math.sin(rel) >= 0;
-    this.sprite.scale.set(
-      (facingRight ? 1 : -1) * PLAYER.SPRITE_SIZE.width,
-      PLAYER.SPRITE_SIZE.height,
-      1
-    );
+    const w = PLAYER.SPRITE_SIZE.width;
+    this.sprite.scale.set(flipX ? -w : w, PLAYER.SPRITE_SIZE.height, 1);
   }
 
   resetPosition(): void {
@@ -175,9 +215,10 @@ export class Player {
   }
 
   dispose(): void {
-    for (const tex of Object.values(this.textures)) tex.dispose();
+    for (const dir of Object.values(this.textures)) {
+      for (const tex of Object.values(dir)) tex?.dispose();
+    }
     this.material.dispose();
     this.physics.removeCharacterController(this.cc);
-    // Body/Collider は World.free() で解放される
   }
 }
