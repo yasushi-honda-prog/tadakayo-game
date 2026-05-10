@@ -21,23 +21,50 @@
         <div id="title-screen" class="screen visible">
           <img class="title-logo-img" src="./assets/images/title-logo.png" alt="タダカヨ ランナー" />
           <p class="title-subtitle">タダカヨちゃんのDX大冒険</p>
+          <div class="title-highscore-pill">
+            <span>ハイスコア</span><strong id="title-highscore">0</strong>
+          </div>
+          <div class="settings-block">
+            <label class="settings-label">難易度</label>
+            <div id="difficulty-buttons" class="difficulty-buttons">
+              <button type="button" class="diff-btn" data-difficulty="easy">やさしい</button>
+              <button type="button" class="diff-btn active" data-difficulty="normal">ふつう</button>
+              <button type="button" class="diff-btn" data-difficulty="hard">むずかしい</button>
+            </div>
+          </div>
           <button id="start-button" class="primary-button" type="button">スタート</button>
-          <p class="title-hint">← → で移動 / Space でジャンプ / モバイルはタップ＆スワイプ</p>
+          <button id="mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
+          <p class="title-hint">
+            ← → / A・D で移動 ・ Space / ↑ でジャンプ ・ ↓ でしゃがむ<br />
+            モバイル: タップ&スワイプ（上=ジャンプ／下=しゃがむ／中央左右=レーン）
+          </p>
         </div>
         <div id="hud" class="hud hidden">
-          <div class="hud-item"><span class="hud-label">スコア</span><span id="hud-score">0</span></div>
-          <div class="hud-item"><span class="hud-label">距離</span><span id="hud-distance">0</span><span class="hud-unit">m</span></div>
+          <div class="hud-row hud-row-top">
+            <div class="hud-item"><span class="hud-label">スコア</span><span id="hud-score">0</span></div>
+            <div class="hud-item hud-stage-pill"><span class="hud-label">ステージ</span><span id="hud-stage">現場</span></div>
+            <div class="hud-item"><span class="hud-label">距離</span><span id="hud-distance">0</span><span class="hud-unit">m</span></div>
+          </div>
+          <div class="hud-row hud-row-bottom">
+            <div id="hud-combo" class="hud-combo"><span class="hud-label">コンボ</span><span id="hud-combo-value">0</span><span id="hud-multiplier" class="hud-multiplier">×1</span></div>
+            <div id="hud-shield" class="hud-shield">
+              <span class="hud-label">シールドゲージ</span>
+              <div class="shield-bar"><div id="hud-streak" class="shield-fill">0/5</div></div>
+            </div>
+          </div>
         </div>
+        <div id="stage-flash" class="stage-flash"></div>
         <div id="result-screen" class="screen hidden">
           <h2 class="result-title">ありがとう！</h2>
           <div class="result-stats">
             <div><span>スコア</span><strong id="result-score">0</strong></div>
             <div><span>距離</span><strong id="result-distance">0</strong>m</div>
+            <div><span>最高コンボ</span><strong id="result-combo">0</strong></div>
+            <div><span>到達ステージ</span><strong id="result-stage">現場</strong></div>
             <div><span>ハイスコア</span><strong id="result-highscore">0</strong></div>
           </div>
           <button id="retry-button" class="primary-button" type="button">もう一度</button>
         </div>
-        <div id="audio-toggle" class="audio-toggle hidden" role="button" aria-label="音のオンオフ" tabindex="0">🔊</div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

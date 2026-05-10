@@ -1,9 +1,9 @@
-// キーボード + タッチ統合入力。
-// 出力: laneDelta (-1 / 0 / +1) と jumpRequested フラグ。
+// キーボード + タッチ統合入力。lane-delta / jump / crouch を発火する。
 
 export type InputEvent =
   | { type: "lane"; delta: -1 | 1 }
-  | { type: "jump" };
+  | { type: "jump" }
+  | { type: "crouch" };
 
 type Listener = (event: InputEvent) => void;
 
@@ -12,7 +12,6 @@ export class Input {
   private touchStart: { x: number; y: number; t: number } | null = null;
   private readonly target: HTMLElement;
 
-  // タッチ判定しきい値
   private readonly SWIPE_DIST = 40;
   private readonly TAP_MAX_DIST = 24;
 
@@ -53,6 +52,13 @@ export class Input {
           this.emit({ type: "jump" });
           e.preventDefault();
           break;
+        case "ArrowDown":
+        case "s":
+        case "S":
+        case "Shift":
+          this.emit({ type: "crouch" });
+          e.preventDefault();
+          break;
       }
     });
   }
@@ -79,18 +85,21 @@ export class Input {
         const adx = Math.abs(dx);
         const ady = Math.abs(dy);
         if (adx < this.TAP_MAX_DIST && ady < this.TAP_MAX_DIST) {
-          // タップ = 画面中央基準で左右判定 / 上タップでジャンプ
+          // タップ: 画面の上 30% = ジャンプ / 下 30% = しゃがみ / 中央左右 = レーンチェンジ
           const w = window.innerWidth;
           const h = window.innerHeight;
-          if (t.clientY < h * 0.4) {
+          if (t.clientY < h * 0.3) {
             this.emit({ type: "jump" });
+          } else if (t.clientY > h * 0.7) {
+            this.emit({ type: "crouch" });
           } else if (t.clientX < w * 0.5) {
             this.emit({ type: "lane", delta: -1 });
           } else {
             this.emit({ type: "lane", delta: 1 });
           }
-        } else if (ady > adx && dy < -this.SWIPE_DIST) {
-          this.emit({ type: "jump" });
+        } else if (ady > adx) {
+          if (dy < -this.SWIPE_DIST) this.emit({ type: "jump" });
+          else if (dy > this.SWIPE_DIST) this.emit({ type: "crouch" });
         } else if (adx > ady) {
           if (dx < -this.SWIPE_DIST) this.emit({ type: "lane", delta: -1 });
           else if (dx > this.SWIPE_DIST) this.emit({ type: "lane", delta: 1 });
