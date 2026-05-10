@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.DS_Store
+.env*
+*.log
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Playwright MCP scratch
+.playwright-mcp/
+
+# Screenshot 確認用（dev 中の生成物）
+phase*.png
+
+# direnv local cache
+.direnv/
