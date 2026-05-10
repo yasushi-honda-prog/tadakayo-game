@@ -171,8 +171,10 @@ export class Player {
     else if (moveLen > 0.05) pose = "run";
     else pose = "idle";
 
-    // 移動してない時はカメラから見て「向こう（背中）」を向く（=back）
-    let rel = this.facingYaw - cameraYaw;
+    // cameraYaw は camera の旋回角で、視線方向の atan2 とは π ずれている。
+    // 例: cameraYaw=0 → camera は player の +Z 側、視線方向は -Z = atan2(0,-1) = π
+    // よって「camera 視線 atan2 = cameraYaw + π」と比較する。
+    let rel = this.facingYaw - cameraYaw - Math.PI;
     while (rel > Math.PI) rel -= Math.PI * 2;
     while (rel < -Math.PI) rel += Math.PI * 2;
 
@@ -180,12 +182,13 @@ export class Player {
     let flipX = false;
     const abs = Math.abs(rel);
     if (abs < Math.PI / 4) {
-      dir = "back"; // キャラの向き ≈ カメラの向き → 背中が見える
+      dir = "back"; // キャラがカメラ視線と同じ方向を向いている = 背中が見える
     } else if (abs > (Math.PI * 3) / 4) {
-      dir = "front"; // 反対 → 顔が見える
+      dir = "front"; // 逆方向 = 顔が見える（カメラに向かってきている）
     } else {
       dir = "side";
-      flipX = rel < 0; // 右プロファイル sprite を左向きにするとき反転
+      // rel > 0: キャラがカメラ視線の右側を向いている = 右プロファイル sprite を反転して左側面に
+      flipX = rel > 0;
     }
 
     // テクスチャ取得（フォールバック: pose が無ければ idle、それも無ければ side の同 pose）
