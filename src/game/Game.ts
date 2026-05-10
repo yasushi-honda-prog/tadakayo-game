@@ -46,10 +46,10 @@ export class Game {
       else if (event.type === "jump") this.player.jump();
     });
 
-    // ハイスコア読み込み
+    // ハイスコア読み込み（旧バージョンで float 保存されたケースを整数化）
     const stored = Number(localStorage.getItem(STORAGE_KEYS.HIGH_SCORE));
     if (Number.isFinite(stored) && stored > 0) {
-      this.state.stats.highScore = stored;
+      this.state.stats.highScore = Math.floor(stored);
     }
 
     this.titleScreen = new TitleScreen(() => this.startPlay());
