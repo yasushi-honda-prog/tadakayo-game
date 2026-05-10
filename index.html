@@ -21,7 +21,7 @@
         <div id="title-screen" class="screen visible">
           <img class="title-logo-img" src="./assets/images/title-logo.png" alt="タダカヨ村" />
           <p class="title-subtitle">タダカヨちゃんのDX大冒険 — オープンワールド版</p>
-          <div class="phase-tag">Phase 5-B プロトタイプ（タダカヨ村）</div>
+          <div class="phase-tag">Phase 5-C プロトタイプ（ミッション）</div>
           <button id="start-button" class="primary-button" type="button">スタート</button>
           <button id="mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
           <div class="title-hint">
@@ -32,8 +32,26 @@
           </div>
         </div>
         <div id="hud" class="hud hidden">
-          <div class="hud-pill"><span class="hud-label">座標</span><span id="hud-position">x:0 y:0 z:0</span></div>
-          <div class="hud-pill hud-hint">クリックして視点ロック → WASD 移動 / Space ジャンプ</div>
+          <div class="hud-row hud-row-top">
+            <div class="hud-pill"><span class="hud-label">座標</span><span id="hud-position">x:0 y:0 z:0</span></div>
+            <div class="hud-pill hud-hint">M でミッション一覧 ・ クリックで視点ロック ・ WASD 移動 / Space ジャンプ</div>
+          </div>
+          <div id="hud-mission" class="hud-mission hidden">
+            <span class="hud-mission-label">現在のミッション</span>
+            <span id="hud-mission-title" class="hud-mission-title">—</span>
+            <span id="hud-mission-progress" class="hud-mission-progress">0/0</span>
+          </div>
+          <div id="hud-toast" class="hud-toast hidden">クリア！</div>
+        </div>
+        <div id="mission-panel" class="mission-panel hidden">
+          <div class="mission-panel-card">
+            <div class="mission-panel-header">
+              <h2>ミッション</h2>
+              <button id="mission-panel-close" type="button" aria-label="閉じる">✕</button>
+            </div>
+            <div id="mission-panel-list" class="mission-panel-list"></div>
+            <div class="mission-panel-hint">M キーで閉じる</div>
+          </div>
         </div>
       </div>
     </div>

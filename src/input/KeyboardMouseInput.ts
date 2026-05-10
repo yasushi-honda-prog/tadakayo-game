@@ -50,6 +50,8 @@ export class KeyboardMouseInput {
       e.preventDefault();
     } else if (key === "e") {
       this.bus.emit("action");
+    } else if (key === "m") {
+      this.bus.emit("panel");
     } else if (key === "escape" || key === "p") {
       this.bus.emit("pause");
     }
