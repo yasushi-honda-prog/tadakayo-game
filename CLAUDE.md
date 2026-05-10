@@ -66,7 +66,7 @@ NG（ブランドガイドライン由来）:
 - ロゴ変形・指定色外使用
 - ドロップシャドウ装飾の濫用
 
-## キャラクタースプライト（12 種）
+## キャラクタースプライト（14 種）
 
 | | idle | run | jump | crouch |
 |---|---|---|---|---|
@@ -77,9 +77,7 @@ NG（ブランドガイドライン由来）:
 
 front/back の crouch は side で代用。
 
-すべて nano-banana (Gemini 3.1 Flash Image) で生成し、`scripts/remove-checker-bg.py` で完全透明化済み。
-
-**既知の品質課題**: 追加 sprite 群でキャラが裸足（プロンプトに `shoes` 含めず）。Phase 5-F で再生成予定。
+すべて nano-banana (Gemini 3.1 Flash Image) で統一プロンプト（赤い和風ジャケット + 赤い短パン + 白いスニーカー + 黄色ショート + ピンクヘッドフォン + 細目笑顔）で生成、`scripts/remove-checker-bg.py` で完全透明化済み。Phase 5-C 直前にデザイン整合化（PR #10）で 14 枚を一括再生成。
 
 ## 物理・操作パラメータ（`src/config/gameConfig.ts`）
 
