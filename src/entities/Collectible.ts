@@ -81,8 +81,12 @@ export class Collectible {
   /**
    * MissionManager の active な CollectMission から毎フレーム呼ばれる。
    * 既に取得済みなら何もしない。プレイヤーとの距離が PICKUP_RADIUS 内なら取得。
+   *
+   * 引数は MissionContext.playerPosition と同じ不変スナップショット型を受ける
+   * （Mission.ts のコメント参照）。Vector3 を直接受けないことで mission 側からの
+   * 誤 mutation 経路を断つ。
    */
-  tryCollect(playerPosition: THREE.Vector3): void {
+  tryCollect(playerPosition: Readonly<{ x: number; y: number; z: number }>): void {
     if (this.collected) return;
     const dx = playerPosition.x - this.position.x;
     const dz = playerPosition.z - this.position.z;

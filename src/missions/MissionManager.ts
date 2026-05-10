@@ -48,7 +48,12 @@ export class MissionManager {
 
   update(playerPosition: THREE.Vector3, dt: number): void {
     this.elapsed += dt;
-    const ctx: MissionContext = { playerPosition, elapsed: this.elapsed };
+    // Vector3 そのまま渡すと mission 側で .set() などで mutation できるため
+    // 不変な値オブジェクトに詰め直す (Mission.ts の MissionContext コメント参照)
+    const ctx: MissionContext = {
+      playerPosition: { x: playerPosition.x, y: playerPosition.y, z: playerPosition.z },
+      elapsed: this.elapsed,
+    };
 
     let mutated = false;
     for (const m of this.active) {
