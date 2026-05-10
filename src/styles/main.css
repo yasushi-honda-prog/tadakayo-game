@@ -87,15 +87,14 @@ body {
   opacity: 1;
 }
 
-.title-logo {
-  margin: 0;
-  font-size: clamp(40px, 9vw, 84px);
-  font-weight: 900;
-  color: var(--brand-primary);
-  letter-spacing: 0.04em;
-  text-shadow:
-    4px 4px 0 var(--brand-pink-strong),
-    8px 8px 0 rgba(227, 53, 53, 0.18);
+.title-logo-img {
+  display: block;
+  width: clamp(280px, 70vw, 640px);
+  max-width: 90vw;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 4px 12px rgba(227, 53, 53, 0.18));
 }
 
 .title-subtitle {
