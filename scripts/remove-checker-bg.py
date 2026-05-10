@@ -25,9 +25,20 @@ def remove_checker_bg(path: Path) -> tuple[int, int]:
     r = arr[:, :, 0].astype(int)
     g = arr[:, :, 1].astype(int)
     b = arr[:, :, 2].astype(int)
+    a = arr[:, :, 3].astype(int)
+    # チェッカー柄は「明るいグレー + 暗いグレー」のペア。AI 生成画像は次のいずれかになる:
+    # 1) 外周透明 + 内側に明るいチェッカー柄
+    # 2) 外周透明 + 内側に暗いチェッカー柄（旧スクリプトでは検出不可）
+    # 3) 外周まで全部不透明な明るい / 暗いチェッカー柄
+    # bg_candidate に含めるピクセル: 既透明 (alpha<128) | 純黒チェッカー (RGB<16) | 明灰チェッカー (RGB>=80)。
+    # 中間色 (16-79) は除外: キャラ内シャドウ・瞳の濃い色を背景候補にしないため。
+    # キャラ内の純黒アウトラインも is_dark_check=True になるが、4 隅起点の連結成分判定で
+    # キャラ周辺の肌色 (R>>G>B → is_gray=False) がバリアとなり、外周連結成分から分離されて保護される。
     is_gray = (np.abs(r - g) < 30) & (np.abs(g - b) < 30) & (np.abs(r - b) < 30)
-    is_bright = r >= 180
-    bg_candidate = is_gray & is_bright
+    is_already_transparent = a < 128
+    is_dark_check = (r < 16) & (g < 16) & (b < 16)
+    is_light_gray = is_gray & (r >= 80)
+    bg_candidate = is_already_transparent | is_dark_check | is_light_gray
 
     labeled, _ = label(bg_candidate)
     corner_labels: set[int] = set()
