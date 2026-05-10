@@ -1,10 +1,12 @@
 import * as THREE from "three";
 import { LANE, PLAYER } from "../config/gameConfig";
-import { BRAND_HEX } from "../config/brand";
 
 export class Player {
   readonly object: THREE.Group;
-  private readonly mesh: THREE.Mesh;
+  private readonly sprite: THREE.Sprite;
+  private readonly material: THREE.SpriteMaterial;
+  private readonly runTexture: THREE.Texture;
+  private readonly jumpTexture: THREE.Texture;
   private targetLane: number = PLAYER.START_LANE;
   private currentX: number = LANE.POSITIONS[PLAYER.START_LANE];
   private velocityY = 0;
@@ -14,32 +16,25 @@ export class Player {
     this.object = new THREE.Group();
     this.object.position.set(this.currentX, PLAYER.GROUND_Y, 0);
 
-    // 仮プリミティブ: 背の高い丸い直方体（タダカヨちゃんイメージカラー）
-    const geom = new THREE.BoxGeometry(0.8, 1.4, 0.6);
-    const mat = new THREE.MeshStandardMaterial({
-      color: BRAND_HEX.PRIMARY,
-      roughness: 0.6,
-      metalness: 0.05,
+    const loader = new THREE.TextureLoader();
+    const base = import.meta.env.BASE_URL;
+    this.runTexture = loader.load(`${base}assets/images/tadakayo-run.png`);
+    this.jumpTexture = loader.load(`${base}assets/images/tadakayo-jump.png`);
+    for (const tex of [this.runTexture, this.jumpTexture]) {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+    }
+
+    this.material = new THREE.SpriteMaterial({
+      map: this.runTexture,
+      transparent: true,
+      depthWrite: false,
     });
-    this.mesh = new THREE.Mesh(geom, mat);
-    this.mesh.castShadow = true;
-    this.mesh.position.y = 0;
-    this.object.add(this.mesh);
-
-    // 頭の表現用に黄色い球を追加（暫定）
-    const headGeom = new THREE.SphereGeometry(0.32, 16, 16);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffd84d, roughness: 0.5 });
-    const head = new THREE.Mesh(headGeom, headMat);
-    head.position.y = 0.95;
-    this.object.add(head);
-
-    // ピンクのヘッドフォン風リング
-    const ringGeom = new THREE.TorusGeometry(0.3, 0.06, 8, 24);
-    const ringMat = new THREE.MeshStandardMaterial({ color: BRAND_HEX.PINK, roughness: 0.4 });
-    const ring = new THREE.Mesh(ringGeom, ringMat);
-    ring.position.y = 1.05;
-    ring.rotation.x = Math.PI / 2;
-    this.object.add(ring);
+    this.sprite = new THREE.Sprite(this.material);
+    this.sprite.scale.set(PLAYER.SPRITE_SIZE.width * 1.6, PLAYER.SPRITE_SIZE.height * 1.6, 1);
+    this.sprite.position.y = PLAYER.SPRITE_SIZE.height * 0.6;
+    this.object.add(this.sprite);
   }
 
   changeLane(delta: -1 | 1): void {
@@ -53,12 +48,10 @@ export class Player {
   }
 
   update(dt: number): void {
-    // レーン移動補間
     const targetX = LANE.POSITIONS[this.targetLane];
     this.currentX += (targetX - this.currentX) * Math.min(1, LANE.LERP * (dt / (1 / 60)));
     this.object.position.x = this.currentX;
 
-    // ジャンプ物理
     if (!this.grounded) {
       this.velocityY += PLAYER.GRAVITY * dt;
       this.object.position.y += this.velocityY * dt;
@@ -69,8 +62,18 @@ export class Player {
       }
     }
 
-    // 走る感じを出すために少し前傾揺れ
-    this.mesh.rotation.z = Math.sin(performance.now() * 0.01) * 0.05;
+    const desired = this.grounded ? this.runTexture : this.jumpTexture;
+    if (this.material.map !== desired) {
+      this.material.map = desired;
+      this.material.needsUpdate = true;
+    }
+
+    // 走ってる感: 接地時に上下に微振動
+    if (this.grounded) {
+      this.sprite.position.y = PLAYER.SPRITE_SIZE.height * 0.6 + Math.sin(performance.now() * 0.018) * 0.05;
+    } else {
+      this.sprite.position.y = PLAYER.SPRITE_SIZE.height * 0.6;
+    }
   }
 
   resetPosition(): void {
@@ -81,7 +84,6 @@ export class Player {
     this.object.position.set(this.currentX, PLAYER.GROUND_Y, 0);
   }
 
-  /** 当たり判定用 AABB（足元中心、見た目より小さめ） */
   getHitbox(): THREE.Box3 {
     const half = {
       x: PLAYER.HITBOX.width / 2,
@@ -95,7 +97,6 @@ export class Player {
     );
   }
 
-  /** 収集判定用 AABB（広め、取り損ね防止） */
   getPickupBox(): THREE.Box3 {
     const half = {
       x: PLAYER.PICKUP_BOX.width / 2,
@@ -114,12 +115,8 @@ export class Player {
   }
 
   dispose(): void {
-    this.object.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.geometry.dispose();
-        if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
-        else obj.material.dispose();
-      }
-    });
+    this.runTexture.dispose();
+    this.jumpTexture.dispose();
+    this.material.dispose();
   }
 }
