@@ -24,9 +24,12 @@ export class GameState {
   }
 
   finalize(): boolean {
-    const newRecord = this.stats.score > this.stats.highScore;
+    // スコアは内部で float として加算しているため、表示用に整数化する
+    const finalScore = Math.floor(this.stats.score);
+    this.stats.score = finalScore;
+    const newRecord = finalScore > this.stats.highScore;
     if (newRecord) {
-      this.stats.highScore = this.stats.score;
+      this.stats.highScore = finalScore;
     }
     return newRecord;
   }
