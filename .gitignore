@@ -13,6 +13,7 @@ tsconfig.tsbuildinfo
 
 # Screenshot 確認用（dev 中の生成物）
 phase*.png
+prod*.png
 
 # direnv local cache
 .direnv/

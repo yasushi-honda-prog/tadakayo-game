@@ -2,19 +2,30 @@ import * as THREE from "three";
 import { LANE, PLAYER } from "../config/gameConfig";
 import { BRAND_HEX } from "../config/brand";
 
+type Pose = "run" | "jump" | "crouch";
+
 export class Player {
   readonly object: THREE.Group;
   private readonly sprite: THREE.Sprite;
   private readonly material: THREE.SpriteMaterial;
-  private readonly runTexture: THREE.Texture;
-  private readonly jumpTexture: THREE.Texture;
+  private readonly textures: Record<Pose, THREE.Texture>;
   private readonly shieldRing: THREE.Mesh;
+  private currentPose: Pose = "run";
   private targetLane: number = PLAYER.START_LANE;
   private currentX: number = LANE.POSITIONS[PLAYER.START_LANE];
   private velocityY = 0;
   private grounded = true;
   private crouchTimer = 0;
   private shieldTimer = 0;
+  /** 着地直前に押された jump 入力をバッファして次ジャンプに繋げる */
+  private jumpBufferTimer = 0;
+
+  // 各ポーズのスプライト寸法（横長/縦長）。crouch だけ横長
+  private readonly POSE_SCALE: Record<Pose, { x: number; y: number; cy: number }> = {
+    run: { x: 1.92, y: 2.88, cy: 1.08 },
+    jump: { x: 1.92, y: 2.88, cy: 1.18 },
+    crouch: { x: 2.4, y: 1.6, cy: 0.55 },
+  };
 
   constructor() {
     this.object = new THREE.Group();
@@ -22,25 +33,29 @@ export class Player {
 
     const loader = new THREE.TextureLoader();
     const base = import.meta.env.BASE_URL;
-    this.runTexture = loader.load(`${base}assets/images/tadakayo-run.png`);
-    this.jumpTexture = loader.load(`${base}assets/images/tadakayo-jump.png`);
-    for (const tex of [this.runTexture, this.jumpTexture]) {
+    this.textures = {
+      run: loader.load(`${base}assets/images/tadakayo-run.png`),
+      jump: loader.load(`${base}assets/images/tadakayo-jump.png`),
+      crouch: loader.load(`${base}assets/images/tadakayo-crouch.png`),
+    };
+    for (const tex of Object.values(this.textures)) {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
     }
 
     this.material = new THREE.SpriteMaterial({
-      map: this.runTexture,
+      map: this.textures.run,
       transparent: true,
       depthWrite: false,
     });
     this.sprite = new THREE.Sprite(this.material);
-    this.sprite.scale.set(PLAYER.SPRITE_SIZE.width * 1.6, PLAYER.SPRITE_SIZE.height * 1.6, 1);
-    this.sprite.position.y = PLAYER.SPRITE_SIZE.height * 0.6;
+    const scale = this.POSE_SCALE.run;
+    this.sprite.scale.set(scale.x, scale.y, 1);
+    this.sprite.position.y = scale.cy;
     this.object.add(this.sprite);
 
-    // シールドリング（非表示で初期化）
+    // シールドリング
     const ringGeom = new THREE.TorusGeometry(1.0, 0.08, 12, 36);
     const ringMat = new THREE.MeshBasicMaterial({
       color: BRAND_HEX.PINK,
@@ -59,15 +74,17 @@ export class Player {
   }
 
   jump(): void {
-    if (!this.grounded) return;
-    // しゃがみ中はジャンプを優先（しゃがみ解除）
-    this.crouchTimer = 0;
-    this.velocityY = PLAYER.JUMP_VELOCITY;
-    this.grounded = false;
+    if (this.grounded) {
+      this.crouchTimer = 0;
+      this.velocityY = PLAYER.JUMP_VELOCITY;
+      this.grounded = false;
+    } else {
+      // 空中なら次の着地でジャンプを連続発火するようバッファ
+      this.jumpBufferTimer = PLAYER.JUMP_BUFFER_SEC;
+    }
   }
 
   crouch(): void {
-    // 空中ではしゃがめない（着地後に発動）
     if (!this.grounded) return;
     this.crouchTimer = PLAYER.CROUCH_DURATION;
   }
@@ -85,6 +102,10 @@ export class Player {
     return this.crouchTimer > 0;
   }
 
+  isJumping(): boolean {
+    return !this.grounded;
+  }
+
   update(dt: number): void {
     const targetX = LANE.POSITIONS[this.targetLane];
     this.currentX += (targetX - this.currentX) * Math.min(1, LANE.LERP * (dt / (1 / 60)));
@@ -97,43 +118,45 @@ export class Player {
         this.object.position.y = PLAYER.GROUND_Y;
         this.velocityY = 0;
         this.grounded = true;
+        // 着地時に jump buffer があれば即座に再ジャンプ（操作快適性向上）
+        if (this.jumpBufferTimer > 0) {
+          this.jumpBufferTimer = 0;
+          this.velocityY = PLAYER.JUMP_VELOCITY;
+          this.grounded = false;
+        }
       }
     }
 
-    // しゃがみタイマー減算
-    if (this.crouchTimer > 0) {
-      this.crouchTimer = Math.max(0, this.crouchTimer - dt);
-    }
-
-    // シールドタイマー減算 + 点滅
+    if (this.jumpBufferTimer > 0) this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
+    if (this.crouchTimer > 0) this.crouchTimer = Math.max(0, this.crouchTimer - dt);
     if (this.shieldTimer > 0) {
       this.shieldTimer = Math.max(0, this.shieldTimer - dt);
       this.shieldRing.rotation.z += dt * 4;
-      // 残り 1.5 秒で点滅
       const blink = this.shieldTimer < 1.5 ? Math.floor(performance.now() / 120) % 2 === 0 : true;
       this.shieldRing.visible = blink;
       if (this.shieldTimer === 0) this.shieldRing.visible = false;
     }
 
-    // テクスチャ切替
-    const desired = this.grounded ? this.runTexture : this.jumpTexture;
-    if (this.material.map !== desired) {
-      this.material.map = desired;
-      this.material.needsUpdate = true;
-    }
+    // ポーズ判定 + テクスチャ・スケール切替
+    const pose: Pose = this.isCrouching() ? "crouch" : this.grounded ? "run" : "jump";
+    this.applyPose(pose);
 
-    // しゃがみで sprite を縮める / 走り中は微振動
-    const baseY = PLAYER.SPRITE_SIZE.height * 0.6;
-    if (this.isCrouching()) {
-      this.sprite.scale.y = PLAYER.SPRITE_SIZE.height * 1.0; // 通常 1.6 → 1.0 に縮める
-      this.sprite.position.y = baseY * 0.55;
-    } else if (this.grounded) {
-      this.sprite.scale.y = PLAYER.SPRITE_SIZE.height * 1.6;
+    // 走り中は微振動
+    if (pose === "run") {
+      const baseY = this.POSE_SCALE.run.cy;
       this.sprite.position.y = baseY + Math.sin(performance.now() * 0.018) * 0.05;
-    } else {
-      this.sprite.scale.y = PLAYER.SPRITE_SIZE.height * 1.6;
-      this.sprite.position.y = baseY;
     }
+  }
+
+  private applyPose(pose: Pose): void {
+    if (this.currentPose !== pose) {
+      this.material.map = this.textures[pose];
+      this.material.needsUpdate = true;
+      this.currentPose = pose;
+    }
+    const scale = this.POSE_SCALE[pose];
+    this.sprite.scale.set(scale.x, scale.y, 1);
+    this.sprite.position.y = scale.cy;
   }
 
   resetPosition(): void {
@@ -143,11 +166,13 @@ export class Player {
     this.grounded = true;
     this.crouchTimer = 0;
     this.shieldTimer = 0;
+    this.jumpBufferTimer = 0;
     this.shieldRing.visible = false;
+    this.applyPose("run");
     this.object.position.set(this.currentX, PLAYER.GROUND_Y, 0);
   }
 
-  /** 当たり判定。しゃがみ/ジャンプで縦サイズと中心 y が変化する */
+  /** 当たり判定。しゃがみ時は縦サイズ縮小 */
   getHitbox(): THREE.Box3 {
     const hb = this.isCrouching() ? PLAYER.HITBOX_CROUCH : PLAYER.HITBOX;
     const half = { x: hb.width / 2, y: hb.height / 2, z: hb.depth / 2 };
@@ -171,13 +196,8 @@ export class Player {
     );
   }
 
-  isJumping(): boolean {
-    return !this.grounded;
-  }
-
   dispose(): void {
-    this.runTexture.dispose();
-    this.jumpTexture.dispose();
+    for (const tex of Object.values(this.textures)) tex.dispose();
     this.material.dispose();
     this.shieldRing.geometry.dispose();
     (this.shieldRing.material as THREE.Material).dispose();

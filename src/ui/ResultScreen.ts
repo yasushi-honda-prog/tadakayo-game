@@ -39,7 +39,7 @@ export class ResultScreen {
 
   show(data: ResultData): void {
     this.scoreEl.textContent = String(data.score);
-    this.distanceEl.textContent = String(data.distance);
+    this.distanceEl.textContent = `${data.distance}m`;
     this.highEl.textContent = String(data.highScore);
     this.comboEl.textContent = String(data.bestCombo);
     this.stageEl.textContent = data.stageName || "現場";

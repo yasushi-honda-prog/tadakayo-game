@@ -20,6 +20,8 @@ export class HUD {
   private readonly streakEl: HTMLElement;
   private readonly stageEl: HTMLElement;
   private readonly stageFlashEl: HTMLElement;
+  private readonly comboBurstEl: HTMLElement;
+  private readonly tutorialTipEl: HTMLElement;
 
   constructor() {
     this.root = this.required("hud");
@@ -32,6 +34,8 @@ export class HUD {
     this.streakEl = this.required("hud-streak");
     this.stageEl = this.required("hud-stage");
     this.stageFlashEl = this.required("stage-flash");
+    this.comboBurstEl = this.required("combo-burst");
+    this.tutorialTipEl = this.required("tutorial-tip");
   }
 
   private required(id: string): HTMLElement {
@@ -78,8 +82,27 @@ export class HUD {
   flashStage(text: string): void {
     this.stageFlashEl.textContent = text;
     this.stageFlashEl.classList.remove("show");
-    // reflow してアニメーション再起動
     void this.stageFlashEl.offsetWidth;
     this.stageFlashEl.classList.add("show");
+  }
+
+  /** コンボ達成（5/10/15...）時のキラキラ演出 */
+  burstCombo(text: string): void {
+    this.comboBurstEl.textContent = text;
+    this.comboBurstEl.classList.remove("show");
+    void this.comboBurstEl.offsetWidth;
+    this.comboBurstEl.classList.add("show");
+  }
+
+  /** チュートリアル吹き出しを 4 秒間表示 */
+  showTutorialTip(text: string): void {
+    this.tutorialTipEl.textContent = text;
+    this.tutorialTipEl.classList.remove("show");
+    void this.tutorialTipEl.offsetWidth;
+    this.tutorialTipEl.classList.add("show");
+  }
+
+  hideTutorialTip(): void {
+    this.tutorialTipEl.classList.remove("show");
   }
 }

@@ -12,6 +12,8 @@ export const PLAYER = {
   // ジャンプ
   JUMP_VELOCITY: 10,
   GRAVITY: -28,
+  // 着地直前の jump 入力を貯める時間（秒）。Subway Surfers 等のベストプラクティス
+  JUMP_BUFFER_SEC: 0.18,
   // しゃがみ持続時間（秒）。タップ/下方向入力で発動、自動解除
   CROUCH_DURATION: 0.7,
   // 当たり判定（見た目より甘め）
@@ -34,14 +36,21 @@ export const SPEED = {
 } as const;
 
 export const SPAWN = {
-  INITIAL_INTERVAL: 1.3,
-  MIN_INTERVAL: 0.55,
-  INTERVAL_DECAY_PER_10_SEC: 0.09,
+  INITIAL_INTERVAL: 1.5,
+  MIN_INTERVAL: 0.7,
+  INTERVAL_DECAY_PER_10_SEC: 0.07,
   Z: -60,
-  // 障害物 vs 収集アイテムの比率
-  OBSTACLE_RATIO: 0.6,
-  // 障害物のうち、ジャンプ必須／しゃがみ必須／レーン回避の出現比率（合計1.0想定）
-  KIND_WEIGHT: { lane: 0.55, jump: 0.25, crouch: 0.2 } as const,
+  // 障害物 vs 収集アイテムの比率（Easy 寄りベース）
+  OBSTACLE_RATIO: 0.55,
+  // 障害物の種類別出現比率（合計1.0想定）
+  // - lane: 単純なレーン回避
+  // - jump: 縦長の壁（ジャンプ必須、レーンチェンジで隣レーンに逃げることも可）
+  // - jumpLow: 全レーンを横断する低い障害物（ジャンプ必須、隣レーン逃げ不可）
+  // - crouch: 天井（しゃがみ必須）
+  KIND_WEIGHT: { lane: 0.45, jump: 0.2, jumpLow: 0.15, crouch: 0.2 } as const,
+  // 空中ハート列の出現確率（障害物スポーン代わりに発生）
+  AERIAL_PATTERN_CHANCE: 0.18,
+  AERIAL_HEART_COUNT: { min: 3, max: 6 },
 } as const;
 
 export const SCORE = {
@@ -92,7 +101,8 @@ export const DIFFICULTY: Record<
     obstacleRatio: number;
   }
 > = {
-  easy: { label: "やさしい", speedScale: 0.85, spawnIntervalScale: 1.25, obstacleRatio: 0.45 },
-  normal: { label: "ふつう", speedScale: 1.0, spawnIntervalScale: 1.0, obstacleRatio: 0.6 },
-  hard: { label: "むずかしい", speedScale: 1.2, spawnIntervalScale: 0.78, obstacleRatio: 0.7 },
+  // Normal を初心者でも 200m+ 到達できるバランスに緩和
+  easy: { label: "やさしい", speedScale: 0.8, spawnIntervalScale: 1.4, obstacleRatio: 0.4 },
+  normal: { label: "ふつう", speedScale: 0.95, spawnIntervalScale: 1.15, obstacleRatio: 0.5 },
+  hard: { label: "むずかしい", speedScale: 1.15, spawnIntervalScale: 0.82, obstacleRatio: 0.65 },
 };

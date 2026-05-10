@@ -35,6 +35,9 @@ export class Game {
   private disposed = false;
   private currentStageIndex = 0;
   private difficulty: Difficulty = "normal";
+  private prevCombo = 0;
+  private tutorialShown = false;
+  private tipTimers: number[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene = new GameScene(canvas);
@@ -65,6 +68,7 @@ export class Game {
     if (storedDiff && storedDiff in DIFFICULTY) {
       this.difficulty = storedDiff;
     }
+    this.tutorialShown = localStorage.getItem("tadakayo-game.tutorial.shown") === "1";
 
     this.titleScreen = new TitleScreen({
       onStart: () => void this.startPlay(),
@@ -183,6 +187,9 @@ export class Game {
     this.obstacles = this.cleanup(this.obstacles, (o) => o.isOutOfRange());
     this.collectibles = this.cleanup(this.collectibles, (c) => c.isOutOfRange() || c.collected);
 
+    // コンボ達成のキラキラ演出
+    this.checkComboBurst();
+
     // HUD 更新
     this.hud.update({
       score: Math.floor(this.state.stats.score),
@@ -194,6 +201,56 @@ export class Game {
       streakRequired: SCORE.SHIELD_PICKUPS_REQUIRED,
       stageName: STAGE.NAMES[this.currentStageIndex] ?? "",
     });
+  }
+
+  private checkComboBurst(): void {
+    const c = this.state.stats.combo;
+    const milestones: { at: number; text: string }[] = [
+      { at: 5, text: "GREAT!" },
+      { at: 10, text: "AMAZING!" },
+      { at: 15, text: "AWESOME!" },
+      { at: 20, text: "INCREDIBLE!" },
+      { at: 30, text: "UNSTOPPABLE!" },
+      { at: 50, text: "LEGENDARY!" },
+    ];
+    for (const m of milestones) {
+      if (this.prevCombo < m.at && c >= m.at) {
+        this.hud.burstCombo(m.text);
+        this.audio.stageUpSE();
+        break;
+      }
+    }
+    this.prevCombo = c;
+  }
+
+  private scheduleTutorial(): void {
+    for (const t of this.tipTimers) clearTimeout(t);
+    this.tipTimers = [];
+    const tips: { delay: number; text: string }[] = [
+      { delay: 1200, text: "← → で左右に移動！" },
+      { delay: 5200, text: "↑ または Space でジャンプ！" },
+      { delay: 9200, text: "↓ または Shift でしゃがむ！" },
+      { delay: 13200, text: "空中のハート列はジャンプで連取してコンボを稼ごう！" },
+    ];
+    for (const t of tips) {
+      this.tipTimers.push(
+        window.setTimeout(() => {
+          if (this.state.status === "playing") this.hud.showTutorialTip(t.text);
+        }, t.delay)
+      );
+    }
+    this.tipTimers.push(
+      window.setTimeout(() => {
+        localStorage.setItem("tadakayo-game.tutorial.shown", "1");
+        this.tutorialShown = true;
+      }, 18000)
+    );
+  }
+
+  private clearTutorialTimers(): void {
+    for (const t of this.tipTimers) clearTimeout(t);
+    this.tipTimers = [];
+    this.hud.hideTutorialTip();
   }
 
   private checkStageProgression(distance: number): void {
@@ -235,13 +292,16 @@ export class Game {
     this.spawner.setDifficulty(diffCfg.spawnIntervalScale, diffCfg.obstacleRatio);
 
     this.clearWorld();
+    this.clearTutorialTimers();
     this.state.reset();
+    this.prevCombo = 0;
     this.elapsed = 0;
     this.speed = SPEED.INITIAL * diffCfg.speedScale;
     this.spawner.reset();
     this.player.resetPosition();
     this.currentStageIndex = 0;
     this.scene.setPalette(STAGE.PALETTES[0].sky, STAGE.PALETTES[0].skyBottom, STAGE.PALETTES[0].accent);
+    if (!this.tutorialShown) this.scheduleTutorial();
 
     this.titleScreen.hide();
     this.resultScreen.hide();
@@ -264,6 +324,7 @@ export class Game {
     this.state.status = "result";
     this.audio.stopBgm();
     this.audio.gameOverSE();
+    this.clearTutorialTimers();
     const newRecord = this.state.finalize();
     localStorage.setItem(STORAGE_KEYS.HIGH_SCORE, String(this.state.stats.highScore));
 
