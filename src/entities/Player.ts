@@ -81,7 +81,11 @@ export class Player {
     });
     this.sprite = new THREE.Sprite(this.material);
     this.sprite.scale.set(PLAYER.SPRITE_SIZE.width, PLAYER.SPRITE_SIZE.height, 1);
-    this.sprite.position.y = PLAYER.SPRITE_SIZE.height / 2 - 0.05;
+    // sprite 底面を capsule 足元 (object center - (halfHeight + radius)) に揃える。
+    // 旧式 (height/2 - 0.05 = 0.95) は object center + 0.95 が sprite center で、
+    // sprite 底面は object center - 0.05 = capsule 足元より 0.85m 高く、常に浮いて見えていた (Issue #31)。
+    this.sprite.position.y =
+      PLAYER.SPRITE_SIZE.height / 2 - (PLAYER.COLLIDER.halfHeight + PLAYER.COLLIDER.radius);
     this.object.add(this.sprite);
 
     bus.on((event) => {
@@ -229,7 +233,8 @@ export class Player {
     this.applyDirectionalSprite(moveLen, camera.getYaw());
 
     // sprite 縦位置: ダンス中は専用バウンス、それ以外は走り中の足音的な微振動 (接地時のみ)
-    const baseY = PLAYER.SPRITE_SIZE.height / 2 - 0.05;
+    const baseY =
+      PLAYER.SPRITE_SIZE.height / 2 - (PLAYER.COLLIDER.halfHeight + PLAYER.COLLIDER.radius);
     if (dancing) {
       const bounce = Math.max(0, Math.sin(this.danceElapsed * DANCE_BOUNCE_RATE)) * DANCE_BOUNCE_AMP;
       this.sprite.position.y = baseY + bounce;
