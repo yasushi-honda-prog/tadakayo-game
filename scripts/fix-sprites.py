@@ -155,7 +155,7 @@ def colorize_shoes_red(path: str) -> tuple[int, str]:
 
     img = Image.open(path).convert("RGBA")
     info = img.info or {}
-    if info.get("tdk-shoe-color") == "red-v4":
+    if info.get("tdk-shoe-color") == "red-v8":
         return 0, "skipped"
 
     W, H = img.size
@@ -173,6 +173,8 @@ def colorize_shoes_red(path: str) -> tuple[int, str]:
     # 操作 1: 大きい白い連結成分 (= 靴) のみ赤化、かつ画像下半分に位置するもの。
     # → 顔/目/ヘッドフォン等の小さな白いハイライト (連結成分が小さい) は保護
     # → 上半身の白いアクセントも保護 (下半分 H*0.50 を境界に)
+    # **注意 (red-v8 採用方針)**: ふくらはぎや脚周辺に細い赤縁が残る既知の妥協点があるが、
+    # 全 pose で両足の靴を確実に塗るため「完全塗り > 縁の細さ」を優先 (ユーザー C 選択)。
     labeled, _num = label(white_mask_all)
     sizes = np.bincount(labeled.ravel())
     sizes[0] = 0  # 背景 (label=0) は対象外
@@ -205,7 +207,7 @@ def colorize_shoes_red(path: str) -> tuple[int, str]:
     pnginfo = PngImagePlugin.PngInfo()
     if info.get("tdk-foot-shadow") == "v1":
         pnginfo.add_text("tdk-foot-shadow", "v1")
-    pnginfo.add_text("tdk-shoe-color", "red-v4")
+    pnginfo.add_text("tdk-shoe-color", "red-v8")
     new_img.save(path, "PNG", pnginfo=pnginfo)
     return changed, "applied"
 
