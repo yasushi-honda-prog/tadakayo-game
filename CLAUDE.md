@@ -7,13 +7,16 @@
 - 法人内イベント + 公式コンテンツとしての配信が主目的（一般公開も視野）
 - ユーザーが目指す品質: **「どこに出しても恥ずかしくないクオリティ」**（itch.io の良質作品レベル）
 
-## 開発状態(2026-05-11 時点)
+## 開発状態(2026-05-12 時点)
 
 - **Phase 5 完全完了** ✅: 5-A 物理基盤 → 5-B 村構築 → 5-C ミッション基盤 → 5-D NPC/会話 → 5-E モバイル+残ミッション → 5-F 演出+ScoreScreen+DanceNpc+SkyDome → hotfix 6 件 (#19-24)
-- **Phase 6 polish 完了** ✅ (2026-05-11): #26 赤靴 sprite 再生成 / #27 bundle code split / #28 preload crossorigin で handoff 残課題 A/B/D を全消化
+- **Phase 6 polish 完了** ✅ (2026-05-11): #26 赤靴 sprite 再生成 / #27 bundle code split / #28 preload crossorigin
+- **Phase 5-G Player ダンス + collider polish 完了** ✅ (2026-05-12):
+  - #30 Player ダンス機能 (専用 sprite + EDM BGM + 何度でも踊れる)
+  - #32 柱/木 collider 修正、#33 中央モニュメント装飾化 (Issue #31 スコープ 1+2+追加)
 - 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
-- 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + HUD ヒント すべて稼働
-- 残課題なし (Rapier 0.20+ アップデート時に init() deprecation 再評価のみ)
+- 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント すべて稼働
+- **残課題**: Issue #31 OPEN (段差エッジで capsule が浮く Rapier KCC 挙動、P2、本番様子見)、Rapier 0.20+ init() deprecation 再評価
 - ハンドオフ: `docs/handoff/LATEST.md` 参照
 
 ## 公開 URL と base path
@@ -54,17 +57,21 @@ src/
 └── styles/main.css
 ```
 
-## アセット (Phase 5-F 完了時点)
+## アセット (Phase 5-G 完了時点)
 
 ```
 public/assets/
-├── images/       # タダカヨちゃん 14 + NPC 3 (elder/nurse/manager) + title-logo (計 18 PNG)
-└── audio/        # bgm-village.ogg (Cheerful Annoyance 12s ループ) + se-{pickup,mission-clear,jump,land,dialog-open,dialog-next}.ogg
+├── images/       # タダカヨちゃん 14 + dance 4 (front-dance-1..4) + NPC 3 + title-logo (計 22 PNG)
+└── audio/        # bgm-village.ogg + bgm-dance.mp3 (Mixkit "Karma" EDM 2:15) + se-{pickup,mission-clear,jump,land,dialog-open,dialog-next}.ogg
 ```
 
-`index.html` に **17 sprite を `<link rel=preload as=image>`** 追加 (PR #24): スタート時のチラつき解消。
+`index.html` に **21 sprite を `<link rel=preload as=image>`** 追加 (PR #24 + #30): スタート時のチラつき解消。
 
-音素材ライセンス: [Kenney Interface Sounds](https://kenney.nl/assets/interface-sounds) + [Kenney Music Jingles](https://kenney.nl/assets/music-jingles) (CC0、商用 OK)。クレジットは README に記載。
+音素材ライセンス:
+- SE / 村 BGM: [Kenney Interface Sounds](https://kenney.nl/assets/interface-sounds) + [Kenney Music Jingles](https://kenney.nl/assets/music-jingles) (CC0、商用 OK)
+- ダンス BGM: "Karma" by Michael Ramir C. from [Mixkit](https://mixkit.co/free-stock-music/tag/dance/) (Mixkit License、商用 OK)
+
+クレジットは README に記載。
 
 ## ブランド定数（`src/config/brand.ts`）
 
@@ -122,7 +129,7 @@ let rel = facingYaw - cameraYaw - Math.PI;
 - `main` push → GitHub Actions が自動デプロイ
 - workflow: `.github/workflows/deploy.yml`
 - Pages の Source は **GitHub Actions** に設定済み
-- bundle (Phase 6, PR #27 後): main chunk **538 KB / gzip 138 KB**, rapier chunk **2,237 KB / gzip 836 KB** (dynamic import で並列ダウンロード)
+- bundle (Phase 5-G 完了時、PR #30 後): main chunk **540 KB / gzip 139 KB** (dance state 追加で +1 KB)、rapier chunk **2,237 KB / gzip 836 KB** (dynamic import で並列ダウンロード)。bgm-dance.mp3 (4.3 MB) は `public/` 別管理で bundle 外
 
 ## モバイル対応 (Phase 5-E 完了)
 
