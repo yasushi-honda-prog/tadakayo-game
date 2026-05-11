@@ -306,6 +306,10 @@ export class Game {
     const mesh = new THREE.Mesh(this.contactShadowGeometry, this.contactShadowMaterial);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(target.position.x, groundY, target.position.z);
+    // **renderOrder = -1**: NPC/Player sprite (transparent + depthWrite:false、default renderOrder=0)
+    // との重なり時に影が後から描かれて sprite を覆い隠す現象を防ぐ。影を強制的に
+    // 一番先に描画 → sprite が後から手前に上書きされて自然な接地表現になる。
+    mesh.renderOrder = -1;
     this.scene.add(mesh);
     this.contactShadows.push({ mesh, target, groundY });
   }

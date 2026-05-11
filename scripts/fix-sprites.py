@@ -127,51 +127,88 @@ def add_foot_shadow(path: str) -> tuple[float, float, str]:
 
 def colorize_shoes_red(path: str) -> tuple[int, str]:
     """
-    画像下端 30% 領域内の「白っぽい不透明ピクセル」をブランド赤 (#e33535) に置換。
+    画像下端 30% 領域で 2 種類の操作を行い、靴領域を完全にブランド赤 (#e33535) で塗りつぶす。
 
-    判定条件 (and):
-    - alpha > 200 (不透明)
-    - R, G, B all >= 200 (白〜薄灰)
+    操作 1: 既存の白っぽい不透明ピクセルを赤に置換
+        - 判定: alpha > 200 + R,G,B all >= 200 (白〜薄灰)
+        - 黒アウトライン (RGB 低) と肌色 (R>>G>B、B<200) は保持
+        - 短パン (元から赤、G/B<200) も保持
 
-    => 白い靴 / 白い靴底のみ対象。黒アウトライン (RGB 低) と肌色 (R>>G>B) は保持。
-    短パン (画像下から 30-50%) は処理範囲外なので影響なし。
+    操作 2: アウトライン内側の透明な「穴」も赤で塗りつぶす (red-v3 で追加)
+        - scipy.binary_fill_holes で「不透明ピクセルの連結成分が囲む穴」を検出
+        - 元の透過処理で「白い靴 + 白い背景チェッカー」が連結して透明化された
+          スケルトン領域を救済 (ユーザー報告: 靴中身が透明でピンク背景が透ける)
+        - **靴限定**: 穴埋めは下端 12% 領域のみ (red-v2 では 30% 全体 → 脚/短パン内の
+          透明領域も誤検出して赤塗りされた問題への対策、codex review High)
 
-    **冪等性保証**: PNG metadata `tdk-shoe-color=red-v1` を sentinel に使用。
-    既に塗布済みなら再処理しない (foot-shadow sentinel は別 key で共存)。
+    **冪等性保証**: PNG metadata `tdk-shoe-color=red-v3` を sentinel に使用。
+    既存 red-v1/red-v2 は再処理対象、red-v3 は skip。foot-shadow sentinel は別 key で共存。
 
     return: (changed_pixel_count, status)
     """
+    import numpy as np
+    from scipy.ndimage import binary_fill_holes
+    from PIL import PngImagePlugin
+
+    import numpy as np
+    from scipy.ndimage import binary_fill_holes, binary_dilation, label
+
     img = Image.open(path).convert("RGBA")
     info = img.info or {}
-    if info.get("tdk-shoe-color") == "red-v1":
+    if info.get("tdk-shoe-color") == "red-v8":
         return 0, "skipped"
 
     W, H = img.size
-    y_start = int(H * 0.70)  # 下から 30% (靴領域、短パンは除外)
+    arr = np.array(img)  # shape: (H, W, 4)
+    alpha = arr[:, :, 3]
 
-    pixels = img.load()
-    if pixels is None:
-        return 0, "error-no-pixels"
+    # 全画素に対する白マスク (alpha>200 + RGB all >= 200)
+    white_mask_all = (
+        (alpha > 200)
+        & (arr[:, :, 0] >= 200)
+        & (arr[:, :, 1] >= 200)
+        & (arr[:, :, 2] >= 200)
+    )
 
-    target = (227, 53, 53)  # #e33535 ブランド赤
-    changed = 0
-    for y in range(y_start, H):
-        for x in range(W):
-            px = pixels[x, y]
-            if not isinstance(px, tuple) or len(px) < 4:
-                continue
-            r, g, b, a = px[0], px[1], px[2], px[3]
-            if a > 200 and r >= 200 and g >= 200 and b >= 200:
-                pixels[x, y] = (target[0], target[1], target[2], a)
-                changed += 1
+    # 操作 1: 大きい白い連結成分 (= 靴) のみ赤化、かつ画像下半分に位置するもの。
+    # → 顔/目/ヘッドフォン等の小さな白いハイライト (連結成分が小さい) は保護
+    # → 上半身の白いアクセントも保護 (下半分 H*0.50 を境界に)
+    # **注意 (red-v8 採用方針)**: ふくらはぎや脚周辺に細い赤縁が残る既知の妥協点があるが、
+    # 全 pose で両足の靴を確実に塗るため「完全塗り > 縁の細さ」を優先 (ユーザー C 選択)。
+    labeled, _num = label(white_mask_all)
+    sizes = np.bincount(labeled.ravel())
+    sizes[0] = 0  # 背景 (label=0) は対象外
+    large_labels = np.where(sizes >= 200)[0]
+    white_mask_large = np.isin(labeled, large_labels) & white_mask_all
+    y_indices = np.indices(white_mask_large.shape)[0]
+    white_mask_target = white_mask_large & (y_indices >= int(H * 0.50))
 
-    # PNG metadata: 既存 foot-shadow sentinel を保持 + shoe-color sentinel 追加
-    from PIL import PngImagePlugin
+    # 操作 2: 「靴ゾーン」 = white_mask_target を 15px 膨張させた範囲内のみ穴埋め。
+    # → run/jump で靴が画像中央寄りにあっても確実に追従、脚や短パン領域は除外
+    shoe_zone = binary_dilation(white_mask_target, iterations=15)
+    opaque_full = alpha > 128
+    opaque_in_zone = opaque_full & shoe_zone
+    filled_zone = binary_fill_holes(opaque_in_zone)
+    if filled_zone is None:
+        filled_zone = opaque_in_zone
+    hole_mask = filled_zone & ~opaque_full & shoe_zone
+
+    target_mask = white_mask_target | hole_mask
+    changed = int(target_mask.sum())
+
+    # 赤 (#e33535) で塗りつぶし。穴 (元 alpha=0) は alpha=255 に
+    arr[:, :, 0] = np.where(target_mask, 227, arr[:, :, 0])
+    arr[:, :, 1] = np.where(target_mask, 53, arr[:, :, 1])
+    arr[:, :, 2] = np.where(target_mask, 53, arr[:, :, 2])
+    arr[:, :, 3] = np.where(target_mask, 255, arr[:, :, 3])
+
+    new_img = Image.fromarray(arr, "RGBA")
+
     pnginfo = PngImagePlugin.PngInfo()
     if info.get("tdk-foot-shadow") == "v1":
         pnginfo.add_text("tdk-foot-shadow", "v1")
-    pnginfo.add_text("tdk-shoe-color", "red-v1")
-    img.save(path, "PNG", pnginfo=pnginfo)
+    pnginfo.add_text("tdk-shoe-color", "red-v8")
+    new_img.save(path, "PNG", pnginfo=pnginfo)
     return changed, "applied"
 
 
