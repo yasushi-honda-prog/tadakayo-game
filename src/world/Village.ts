@@ -318,14 +318,16 @@ export class Village {
       }
     }
 
-    // 噴水（円柱 2 段）
+    // 噴水（円柱 2 段、見た目は base + top の 2 mesh、collider は乗れない高さの 1 本）
+    // Issue #31: 旧 collider (base 上面 y=0.6m、top 上面 y=1.1m) は autostep 0.4m で
+    // Player が歩いて乗れた。Rapier KCC が autostep する高さを capsule + autostep
+    // (= 0.9 + 0.4 = 1.3m) より高い壁にすることで「乗れず・侵入もできない」を実現。
     const fountainBase = new THREE.Mesh(
       new THREE.CylinderGeometry(1.4, 1.4, 0.4, 24),
       new THREE.MeshStandardMaterial({ color: COLOR.FOUNTAIN_BASE, roughness: 0.4 })
     );
     fountainBase.position.set(cx, 0.4, cz);
     this.object.add(fountainBase);
-    physics.addStaticCylinder(0.2, 1.4, { x: cx, y: 0.4, z: cz });
 
     const fountainTop = new THREE.Mesh(
       new THREE.CylinderGeometry(0.5, 0.6, 0.5, 18),
@@ -338,7 +340,11 @@ export class Village {
     );
     fountainTop.position.set(cx, 0.85, cz);
     this.object.add(fountainTop);
-    physics.addStaticCylinder(0.25, 0.55, { x: cx, y: 0.85, z: cz });
+
+    // 統合 collider: 底 y=0 から上面 y=1.6 まで (半高 0.8, y=0.8)。
+    // Player capsule (半径 0.35 + 半高 0.55 + autostep 0.4 = 1.3) より高く、
+    // タダレク広場床面 (y=0.2) からの段差 1.4m は autostep では登れない。
+    physics.addStaticCylinder(0.8, 1.4, { x: cx, y: 0.8, z: cz });
 
     // Phase 5-F: 水柱 (半透明シアンの円柱、animate() で y スケール振動)
     this.fountainCenter.set(cx, 0, cz);
@@ -392,26 +398,24 @@ export class Village {
   }
 
   private addBench(physics: PhysicsWorld, x: number, z: number): void {
+    // Issue #31: 旧実装は座面 (上面 y=0.56m) と脚 (上面 y=0.5m) に collider があり、
+    // autostep 0.4m で Player が歩いて乗り上げる挙動があった。
+    // ベンチは座る機能が無く collider 維持の意義が薄いため装飾化 (PR #32/#33 と同パターン)。
+    // 通り抜けは発生するが、ジャンプなし乗り上げよりも UX 影響は小さい。
+    void physics;
+    const benchMat = new THREE.MeshStandardMaterial({ color: COLOR.BENCH, roughness: 0.7 });
     // 座面
-    this.addBoxMesh(
-      physics,
-      { x: 0.8, y: 0.06, z: 0.22 },
-      { x, y: 0.5, z },
-      COLOR.BENCH
-    );
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.44), benchMat);
+    seat.position.set(x, 0.5, z);
+    this.object.add(seat);
     // 脚 2 本
-    this.addBoxMesh(
-      physics,
-      { x: 0.05, y: 0.25, z: 0.18 },
-      { x: x - 0.7, y: 0.25, z },
-      COLOR.BENCH
-    );
-    this.addBoxMesh(
-      physics,
-      { x: 0.05, y: 0.25, z: 0.18 },
-      { x: x + 0.7, y: 0.25, z },
-      COLOR.BENCH
-    );
+    const legGeo = new THREE.BoxGeometry(0.1, 0.5, 0.36);
+    const legL = new THREE.Mesh(legGeo, benchMat);
+    legL.position.set(x - 0.7, 0.25, z);
+    this.object.add(legL);
+    const legR = new THREE.Mesh(legGeo, benchMat);
+    legR.position.set(x + 0.7, 0.25, z);
+    this.object.add(legR);
   }
 
   // ───────────────────────────────────────────────────────────
