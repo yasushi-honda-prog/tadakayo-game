@@ -150,57 +150,62 @@ def colorize_shoes_red(path: str) -> tuple[int, str]:
     from scipy.ndimage import binary_fill_holes
     from PIL import PngImagePlugin
 
+    import numpy as np
+    from scipy.ndimage import binary_fill_holes, binary_dilation, label
+
     img = Image.open(path).convert("RGBA")
     info = img.info or {}
-    if info.get("tdk-shoe-color") == "red-v3":
+    if info.get("tdk-shoe-color") == "red-v4":
         return 0, "skipped"
 
     W, H = img.size
-    y_start_white = int(H * 0.70)  # 操作 1: 下から 30% で白→赤置換 (短パンの裾を含むが赤は条件不一致で保持)
-    y_start_holes = int(H * 0.88)  # 操作 2: 下から 12% に絞って穴埋め (靴のみ、脚/短パン内の透明領域を誤検出しない)
-
     arr = np.array(img)  # shape: (H, W, 4)
+    alpha = arr[:, :, 3]
 
-    # 操作 1: 下端 30% 領域内の白いピクセルを赤に置換
-    region_white = arr[y_start_white:H, :, :]
-    white_mask = (
-        (region_white[:, :, 3] > 200)
-        & (region_white[:, :, 0] >= 200)
-        & (region_white[:, :, 1] >= 200)
-        & (region_white[:, :, 2] >= 200)
+    # 全画素に対する白マスク (alpha>200 + RGB all >= 200)
+    white_mask_all = (
+        (alpha > 200)
+        & (arr[:, :, 0] >= 200)
+        & (arr[:, :, 1] >= 200)
+        & (arr[:, :, 2] >= 200)
     )
 
-    # 操作 2: 下端 12% (靴帯) 内のアウトライン内側の透明穴を赤で塗りつぶし
-    region_holes = arr[y_start_holes:H, :, :]
-    opaque_mask = region_holes[:, :, 3] > 128
-    filled = binary_fill_holes(opaque_mask)
-    if filled is None:
-        filled = opaque_mask
-    hole_mask_h = filled & ~opaque_mask  # 穴 = 「埋めた後不透明」かつ「元は透明」
+    # 操作 1: 大きい白い連結成分 (= 靴) のみ赤化、かつ画像下半分に位置するもの。
+    # → 顔/目/ヘッドフォン等の小さな白いハイライト (連結成分が小さい) は保護
+    # → 上半身の白いアクセントも保護 (下半分 H*0.50 を境界に)
+    labeled, _num = label(white_mask_all)
+    sizes = np.bincount(labeled.ravel())
+    sizes[0] = 0  # 背景 (label=0) は対象外
+    large_labels = np.where(sizes >= 200)[0]
+    white_mask_large = np.isin(labeled, large_labels) & white_mask_all
+    y_indices = np.indices(white_mask_large.shape)[0]
+    white_mask_target = white_mask_large & (y_indices >= int(H * 0.50))
 
-    # 適用 (操作 1)
-    region_white[:, :, 0] = np.where(white_mask, 227, region_white[:, :, 0])
-    region_white[:, :, 1] = np.where(white_mask, 53, region_white[:, :, 1])
-    region_white[:, :, 2] = np.where(white_mask, 53, region_white[:, :, 2])
-    region_white[:, :, 3] = np.where(white_mask, 255, region_white[:, :, 3])
-    arr[y_start_white:H, :, :] = region_white
+    # 操作 2: 「靴ゾーン」 = white_mask_target を 15px 膨張させた範囲内のみ穴埋め。
+    # → run/jump で靴が画像中央寄りにあっても確実に追従、脚や短パン領域は除外
+    shoe_zone = binary_dilation(white_mask_target, iterations=15)
+    opaque_full = alpha > 128
+    opaque_in_zone = opaque_full & shoe_zone
+    filled_zone = binary_fill_holes(opaque_in_zone)
+    if filled_zone is None:
+        filled_zone = opaque_in_zone
+    hole_mask = filled_zone & ~opaque_full & shoe_zone
 
-    # 適用 (操作 2、穴埋めは alpha=0 → 255 + 赤)
-    region_holes2 = arr[y_start_holes:H, :, :]  # 操作 1 適用後の最新 view
-    region_holes2[:, :, 0] = np.where(hole_mask_h, 227, region_holes2[:, :, 0])
-    region_holes2[:, :, 1] = np.where(hole_mask_h, 53, region_holes2[:, :, 1])
-    region_holes2[:, :, 2] = np.where(hole_mask_h, 53, region_holes2[:, :, 2])
-    region_holes2[:, :, 3] = np.where(hole_mask_h, 255, region_holes2[:, :, 3])
-    arr[y_start_holes:H, :, :] = region_holes2
+    target_mask = white_mask_target | hole_mask
+    changed = int(target_mask.sum())
 
-    changed = int(white_mask.sum()) + int(hole_mask_h.sum())
+    # 赤 (#e33535) で塗りつぶし。穴 (元 alpha=0) は alpha=255 に
+    arr[:, :, 0] = np.where(target_mask, 227, arr[:, :, 0])
+    arr[:, :, 1] = np.where(target_mask, 53, arr[:, :, 1])
+    arr[:, :, 2] = np.where(target_mask, 53, arr[:, :, 2])
+    arr[:, :, 3] = np.where(target_mask, 255, arr[:, :, 3])
 
     new_img = Image.fromarray(arr, "RGBA")
 
     pnginfo = PngImagePlugin.PngInfo()
     if info.get("tdk-foot-shadow") == "v1":
         pnginfo.add_text("tdk-foot-shadow", "v1")
-    pnginfo.add_text("tdk-shoe-color", "red-v3")
+    pnginfo.add_text("tdk-shoe-color", "red-v4")
     new_img.save(path, "PNG", pnginfo=pnginfo)
     return changed, "applied"
 
