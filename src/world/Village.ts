@@ -294,16 +294,17 @@ export class Village {
       COLOR.REKU_FLOOR
     );
 
-    // 4 隅の柱
+    // 4 隅の柱 (Issue #31: 装飾化 — 上面 0.36×0.36m に Player capsule (radius 0.35m) が
+    // 着地できてしまう問題を回避するため collider を外す。見た目だけ維持)
     const cornerOff = halfFloor - 0.4;
     for (const dx of [-cornerOff, cornerOff]) {
       for (const dz of [-cornerOff, cornerOff]) {
-        this.addBoxMesh(
-          physics,
-          { x: 0.18, y: 1.4, z: 0.18 },
-          { x: cx + dx, y: 1.4, z: cz + dz },
-          COLOR.REKU_PILLAR
+        const pillar = new THREE.Mesh(
+          new THREE.BoxGeometry(0.36, 2.8, 0.36),
+          new THREE.MeshStandardMaterial({ color: COLOR.REKU_PILLAR, roughness: 0.7 })
         );
+        pillar.position.set(cx + dx, 1.4, cz + dz);
+        this.object.add(pillar);
         // 柱の上の球（飾り）
         const cap = new THREE.Mesh(
           new THREE.SphereGeometry(0.25, 16, 12),
@@ -503,7 +504,10 @@ export class Village {
     );
     trunk.position.set(x, 1.1, z);
     this.object.add(trunk);
-    physics.addStaticCylinder(1.1, 0.28, { x, y: 1.1, z });
+    // Issue #31: 幹の collider は腰高 (0-1m) までに制限。
+    // 上に着地できる問題 (radius 0.28m の上面に Player capsule が乗る) を回避。
+    // 体当たり防御は腰までで十分機能する。
+    physics.addStaticCylinder(0.5, 0.28, { x, y: 0.5, z });
 
     const leaf = new THREE.Mesh(
       new THREE.SphereGeometry(1.2, 18, 14),
