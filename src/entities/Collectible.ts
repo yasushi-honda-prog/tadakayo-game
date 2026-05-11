@@ -68,7 +68,9 @@ export class Collectible {
     const shadow = new THREE.Mesh(this.shadowGeometry, this.shadowMaterial);
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.set(0, 0.02, 0);
-    shadow.renderOrder = -1; // 地面と Z-fight しないよう先描画
+    // renderOrder は default (0) のまま: transparent material は不透明 (床) の後に
+    // distance sort で描画されるため、床の上に正しく重ねて表示される。
+    // PR #22 の renderOrder=-1 だと床より先に描画され床に上書きされる問題があった。
     this.object.add(shadow);
   }
 
