@@ -7,11 +7,12 @@
 - 法人内イベント + 公式コンテンツとしての配信が主目的（一般公開も視野）
 - ユーザーが目指す品質: **「どこに出しても恥ずかしくないクオリティ」**（itch.io の良質作品レベル）
 
-## 開発状態（2026-05-10 時点）
+## 開発状態(2026-05-11 時点)
 
-- **Phase 5-C 完了**: ミッション基盤 (`src/missions/`) + Collect/Reach 2 本 + MissionPanel (M キー) + HUD 拡張
-- **次フェーズ**: 5-D NPC + 会話 + Talk ミッション → 5-E モバイル → 5-F 仕上げ
-- 過去の経緯: Phase 0-2 ランナー（main 反映）→ 3-4 ランナー深掘り（PR #4 close でピボット）→ 5-A Rapier 物理 + 4 方向スプライト → 5-B 村ステージ → sprite 整合化 (PR #10) → 5-C ミッション基盤
+- **Phase 5 完全完了** ✅: 5-A 物理基盤 → 5-B 村構築 → 5-C ミッション基盤 → 5-D NPC/会話 → 5-E モバイル+残ミッション → 5-F 演出+ScoreScreen+DanceNpc+SkyDome → hotfix 6 件 (#19-24、影/靴/preload/床上影)
+- 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
+- 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + HUD ヒント すべて稼働
+- 残課題 (low priority): nano-banana 赤靴再生成 (脚周り赤縁完全解消) / bundle code split / deprecated warning
 - ハンドオフ: `docs/handoff/LATEST.md` 参照
 
 ## 公開 URL と base path
@@ -37,28 +38,30 @@
 | Vite 5 + TypeScript 5 | ✓ | ビルド/型 |
 | Noto Sans JP, Web Audio API | ✓ | フォント、音 |
 
-## ディレクトリ構成（Phase 5-D 時点）
+## ディレクトリ構成 (Phase 5-F 完了時点)
 
 ```
 src/
-├── core/         # PhysicsWorld, Game (メインループ + MissionManager + NPC 配置 + handleActionPress)
-├── entities/     # Player, Camera, Collectible, NPC (ビルボード + 状態 idle/interactable/talking + 近接判定)
-├── world/        # Village (5-B)
-├── input/        # InputBus (move/look/jump/action/run/pause/panel), KeyboardMouseInput, TouchInput (5-E 予定)
-├── ui/           # TitleScreen, HUD (座標+ミッション+toast+actionHint), MissionPanel (M キー), DialogBox (E キー会話), MobileControls (5-E 予定)
-├── missions/     # Mission (抽象), MissionManager, missions/{Collect,Reach,Talk}Mission
+├── core/         # PhysicsWorld, Game (メインループ + 全 entity + ScoreScreen + SkyDome)
+├── entities/     # Player, Camera, Collectible (専用地面影付), NPC, DanceNpc (5-F 装飾)
+├── world/        # Village (5-B + 5-F 噴水アニメ + 旗揺れ)
+├── input/        # InputBus, KeyboardMouseInput (PointerLock+drag fallback), TouchInput, detectInput
+├── ui/           # TitleScreen, HUD, MissionPanel, DialogBox, PauseMenu, ScoreScreen (5-F), MobileControls
+├── missions/     # Mission, MissionManager, missions/{Collect,Reach,Talk,Dance,Meta}Mission
 ├── audio/        # AudioManager (kenney.nl OGG decode + BGM ループ + SE 6 種)
 ├── config/       # brand.ts, gameConfig.ts (PHYSICS / PLAYER / CAMERA)
 └── styles/main.css
 ```
 
-## アセット (Phase 5-D 時点)
+## アセット (Phase 5-F 完了時点)
 
 ```
 public/assets/
 ├── images/       # タダカヨちゃん 14 + NPC 3 (elder/nurse/manager) + title-logo (計 18 PNG)
-└── audio/        # bgm-village.ogg (Pizzicato ループ) + se-{pickup,mission-clear,jump,land,dialog-open,dialog-next}.ogg
+└── audio/        # bgm-village.ogg (Cheerful Annoyance 12s ループ) + se-{pickup,mission-clear,jump,land,dialog-open,dialog-next}.ogg
 ```
+
+`index.html` に **17 sprite を `<link rel=preload as=image>`** 追加 (PR #24): スタート時のチラつき解消。
 
 音素材ライセンス: [Kenney Interface Sounds](https://kenney.nl/assets/interface-sounds) + [Kenney Music Jingles](https://kenney.nl/assets/music-jingles) (CC0、商用 OK)。クレジットは README に記載。
 
@@ -118,14 +121,15 @@ let rel = facingYaw - cameraYaw - Math.PI;
 - `main` push → GitHub Actions が自動デプロイ
 - workflow: `.github/workflows/deploy.yml`
 - Pages の Source は **GitHub Actions** に設定済み
-- bundle size: 約 2.7 MB（gzip 960 KB、Rapier WASM 込み）— Phase 5-F で code split による遅延ロード予定
+- bundle size: 2,773 KB / gzip 974 KB — Rapier WASM が大半。code split で初回 < 500KB 削減余地あり (next session 候補)
 
-## モバイル対応
+## モバイル対応 (Phase 5-E 完了)
 
-- 現状: PC のみ動作（Pointer Lock 必須）
-- iOS Safari の Pointer Lock は限定対応 → Phase 5-E で仮想スティック実装予定
-- viewport は `width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no`
-- タッチイベントは `passive: false` で `preventDefault` してスクロール抑止
+- **モバイル両対応** ✅: 仮想スティック (左) + ジャンプ/E ボタン (右下) + ⏸ ポーズ (右上)
+- 自動判定: `ontouchstart` / `maxTouchPoints` で判定、URL `?ui=mobile` / `?ui=desktop` で強制
+- PointerLock fallback: マウスドラッグでも視点回転可 (PR #15)
+- viewport: `width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover`
+- タッチイベントは `passive: false` で `preventDefault`
 
 ## 検証コマンド
 
