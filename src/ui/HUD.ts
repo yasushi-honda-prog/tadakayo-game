@@ -1,16 +1,11 @@
 /**
- * Phase 5-C の HUD。座標 + 現在ミッション + 進捗 + クリア演出を担当。
+ * Phase 5-C の HUD。現在ミッション + 進捗 + クリア演出を担当。
  *
- * - 座標 (Phase 5-A から継続、デバッグ・位置感覚用)
  * - 現在ミッション名 + 進捗 (例: 「DXの種を集めよう  3/10」)
  * - クリア時の一時メッセージ (3 秒で自動消去)
+ *
+ * (座標表示は Phase 5-E ハンドオフで不要と判断され削除)
  */
-export interface HUDState {
-  x: number;
-  y: number;
-  z: number;
-}
-
 export interface HUDMission {
   title: string;
   progress: string;
@@ -18,7 +13,6 @@ export interface HUDMission {
 
 export class HUD {
   private readonly root: HTMLElement;
-  private readonly posEl: HTMLElement;
   private readonly missionEl: HTMLElement;
   private readonly missionTitleEl: HTMLElement;
   private readonly missionProgressEl: HTMLElement;
@@ -27,16 +21,14 @@ export class HUD {
 
   constructor() {
     const root = document.getElementById("hud");
-    const pos = document.getElementById("hud-position");
     const mission = document.getElementById("hud-mission");
     const missionTitle = document.getElementById("hud-mission-title");
     const missionProgress = document.getElementById("hud-mission-progress");
     const toast = document.getElementById("hud-toast");
-    if (!root || !pos || !mission || !missionTitle || !missionProgress || !toast) {
+    if (!root || !mission || !missionTitle || !missionProgress || !toast) {
       throw new Error("HUD 要素が見つかりません");
     }
     this.root = root;
-    this.posEl = pos;
     this.missionEl = mission;
     this.missionTitleEl = missionTitle;
     this.missionProgressEl = missionProgress;
@@ -49,10 +41,6 @@ export class HUD {
 
   hide(): void {
     this.root.classList.add("hidden");
-  }
-
-  update(s: HUDState): void {
-    this.posEl.textContent = `x:${s.x.toFixed(1)} y:${s.y.toFixed(1)} z:${s.z.toFixed(1)}`;
   }
 
   setMission(m: HUDMission | null): void {
