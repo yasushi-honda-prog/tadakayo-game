@@ -69,9 +69,6 @@ export class Game {
 
   // Phase 5-F: 演出
   private skyDome: THREE.Mesh | null = null;
-  private contactShadowGeometry!: THREE.CircleGeometry;
-  private contactShadowMaterial!: THREE.MeshBasicMaterial;
-  private contactShadows: Array<{ mesh: THREE.Mesh; target: THREE.Object3D; groundY: number }> = [];
   private danceNpcs: DanceNpc[] = [];
   private playStartMs = 0;
   private scoreScreen!: ScoreScreen;
@@ -97,15 +94,9 @@ export class Game {
 
     // Phase 5-F: スカイドーム (グラデーション内向き球)
     this.scene.add(this.buildSkyDome());
-
-    // Phase 5-F: contact shadow registry (player + 各 NPC の足元に追従する半透明黒円板)
-    this.contactShadowGeometry = new THREE.CircleGeometry(0.45, 24);
-    this.contactShadowMaterial = new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      transparent: true,
-      opacity: 0.35,
-      depthWrite: false,
-    });
+    // 注意 (PR #21): 接地影は sprite に焼き込まれた黒い楕円フットシャドウで担保。
+    // 3D contact shadow は Player の object.position が capsule center (~0.55m) のため
+    // 影が空中に浮く問題があり、PR #21 で全廃した。
 
     // 描画
     this.renderer = new THREE.WebGLRenderer({
@@ -294,33 +285,6 @@ export class Game {
   }
 
   /**
-   * Phase 5-F: target の足元 (XZ) に追従する半透明黒円板を生成して registry に登録。
-   *
-   * **接地影の原理**: target.position.y は jumping/bouncing で変動するが、影は地面に
-   * 残るべき。そのため初期化時の position.y + 0.02 を groundY として保存し、
-   * 追従ループでは XZ のみ更新する。Player は地面 (y=0) → 影 y=0.02、
-   * 床上の NPC (y=0.2) → 影 y=0.22、DanceNpc bounce 中も影は床面に固定される。
-   */
-  private addContactShadow(target: THREE.Object3D): void {
-    const groundY = target.position.y + 0.02;
-    const mesh = new THREE.Mesh(this.contactShadowGeometry, this.contactShadowMaterial);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(target.position.x, groundY, target.position.z);
-    // **renderOrder = -1**: NPC/Player sprite (transparent + depthWrite:false、default renderOrder=0)
-    // との重なり時に影が後から描かれて sprite を覆い隠す現象を防ぐ。影を強制的に
-    // 一番先に描画 → sprite が後から手前に上書きされて自然な接地表現になる。
-    mesh.renderOrder = -1;
-    this.scene.add(mesh);
-    this.contactShadows.push({ mesh, target, groundY });
-  }
-
-  /** Phase 5-F: contact shadow を全部消す (resetToTitle 時) */
-  private clearContactShadows(): void {
-    for (const cs of this.contactShadows) this.scene.remove(cs.mesh);
-    this.contactShadows = [];
-  }
-
-  /**
    * Esc / P / pause ボタン押下時:
    * - playing 中だけ反応 (タイトル画面では無視)
    * - dialog/missionPanel が開いていれば閉じる優先
@@ -468,16 +432,9 @@ export class Game {
       // NPC 近接判定 + 「E で話す」ヒント更新
       this.updateNpcsAndHint(this.player.position, dt);
 
-      // Phase 5-F: 村のアニメ (噴水・旗) + ダンス NPC + contact shadow 追従
+      // Phase 5-F: 村のアニメ (噴水・旗) + ダンス NPC
       this.village.animate(dt, this.elapsed);
       for (const d of this.danceNpcs) d.animate(dt);
-      for (const cs of this.contactShadows) {
-        cs.mesh.position.x = cs.target.position.x;
-        cs.mesh.position.z = cs.target.position.z;
-        // y は初期化時に固定した groundY を使う (codex Low 修正: ジャンプ/bounce 中も
-        // 影は地面に残ることで接地感が自然になる)
-        cs.mesh.position.y = cs.groundY;
-      }
     }
 
     this.renderer.render(this.scene, this.camera.camera);
@@ -664,12 +621,14 @@ export class Game {
     this.hud.show();
     this.refreshMissionUI();
     if (this.inputMode === "mobile") this.mobileControls?.show();
-    // Phase 5-F: スタート時刻 + プレイヤー contact shadow 登録 (再 startPlay 時も clean)
+    // Phase 5-F: スタート時刻記録
     this.playStartMs = performance.now();
     this.elapsed = 0;
-    if (!this.contactShadows.some((cs) => cs.target === this.player.object)) {
-      this.addContactShadow(this.player.object);
-    }
+    // **contact shadow は無効化**: Player の object.position は physics capsule の center
+    // (地面 +0.55m) のため、影 mesh が「キャラの腰〜頭の高さ」に空中固定されて表示される
+    // 違和感があった (PR #20 後ユーザー実機報告)。sprite には既に fix-sprites.py で
+    // 黒い楕円フットシャドウが焼き込まれているため、3D contact shadow を全廃しても
+    // 接地表現は維持される。
     this.playing = true;
   }
 
@@ -722,7 +681,6 @@ export class Game {
       d.dispose();
     }
     this.danceNpcs = [];
-    this.clearContactShadows();
     this.missions.dispose();
     this.talkMission = null;
     this.danceMission = null;
@@ -766,11 +724,6 @@ export class Game {
     for (const c of this.collectibles) c.dispose();
     for (const n of this.npcs) n.dispose();
     for (const d of this.danceNpcs) d.dispose();
-    // Phase 5-F: contact shadow mesh を scene から remove してから geometry/material dispose
-    // (Medium 修正: scene 残留 mesh が dispose 済み geometry を参照する不整合を解消)
-    this.clearContactShadows();
-    this.contactShadowGeometry.dispose();
-    this.contactShadowMaterial.dispose();
     if (this.skyDome !== null) {
       const m = this.skyDome.material;
       if (Array.isArray(m)) m.forEach((mm) => mm.dispose());
