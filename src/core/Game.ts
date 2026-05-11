@@ -71,7 +71,7 @@ export class Game {
   private skyDome: THREE.Mesh | null = null;
   private contactShadowGeometry!: THREE.CircleGeometry;
   private contactShadowMaterial!: THREE.MeshBasicMaterial;
-  private contactShadows: Array<{ mesh: THREE.Mesh; target: THREE.Object3D }> = [];
+  private contactShadows: Array<{ mesh: THREE.Mesh; target: THREE.Object3D; groundY: number }> = [];
   private danceNpcs: DanceNpc[] = [];
   private playStartMs = 0;
   private scoreScreen!: ScoreScreen;
@@ -293,14 +293,21 @@ export class Game {
     return dome;
   }
 
-  /** Phase 5-F: target の足元に追従する半透明黒円板を生成して registry に登録 */
+  /**
+   * Phase 5-F: target の足元 (XZ) に追従する半透明黒円板を生成して registry に登録。
+   *
+   * **接地影の原理**: target.position.y は jumping/bouncing で変動するが、影は地面に
+   * 残るべき。そのため初期化時の position.y + 0.02 を groundY として保存し、
+   * 追従ループでは XZ のみ更新する。Player は地面 (y=0) → 影 y=0.02、
+   * 床上の NPC (y=0.2) → 影 y=0.22、DanceNpc bounce 中も影は床面に固定される。
+   */
   private addContactShadow(target: THREE.Object3D): void {
+    const groundY = target.position.y + 0.02;
     const mesh = new THREE.Mesh(this.contactShadowGeometry, this.contactShadowMaterial);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.copy(target.position);
-    mesh.position.y = 0.02; // 地面わずか上に浮かせて Z-fight を避ける
+    mesh.position.set(target.position.x, groundY, target.position.z);
     this.scene.add(mesh);
-    this.contactShadows.push({ mesh, target });
+    this.contactShadows.push({ mesh, target, groundY });
   }
 
   /** Phase 5-F: contact shadow を全部消す (resetToTitle 時) */
@@ -463,10 +470,9 @@ export class Game {
       for (const cs of this.contactShadows) {
         cs.mesh.position.x = cs.target.position.x;
         cs.mesh.position.z = cs.target.position.z;
-        // y は target の現在値 + 0.02 オフセット (Medium 修正: DanceNpc の bounce や
-        // 凹凸地面でも shadow が target 足元に追従。target の y がジャンプで上がっても
-        // 視覚的に「光源直下」の影になる)
-        cs.mesh.position.y = cs.target.position.y + 0.02;
+        // y は初期化時に固定した groundY を使う (codex Low 修正: ジャンプ/bounce 中も
+        // 影は地面に残ることで接地感が自然になる)
+        cs.mesh.position.y = cs.groundY;
       }
     }
 
