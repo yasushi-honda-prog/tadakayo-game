@@ -1,34 +1,47 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-11 (Phase 6 polish 完了)
+最終更新: 2026-05-12 (Player ダンス機能 + collider polish 完了)
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `3370848`)
-- **Phase 5 + 6 polish 完了** ✅(2026-05-11)
+- **現在ブランチ**: `main`(同期済み、最新コミット `b3adc3c`)
+- **Phase 5 + 6 polish + Player ダンス + collider polish 完了** ✅(2026-05-12)
 - **未マージ PR**: なし
 
-## Phase 6 polish (2026-05-11) で消化した残課題
+## 2026-05-12 セッション成果
 
 | PR | 内容 | 効果 |
 |---|---|---|
-| **#26** | nano-banana で赤靴 sprite 14 枚再生成 | 脚周りの細い赤縁 (PR #19 妥協点) を根絶 |
-| **#27** | Rapier WASM を dynamic import で別 chunk に分離 | main chunk **2,773 KB → 538 KB (-80%)**, gzip **974 KB → 138 KB (-86%)** |
-| **#28** | preload link に crossorigin="anonymous" 追加 | console warnings **41 → 1 (98% 削減)** |
+| **#30** | Player ダンス機能 (専用 sprite + EDM BGM + 何度でも踊れる) | タダレク広場の体験が完成、DanceMission クリア後も繰り返し可 |
+| **#32** | タダレク広場の柱と木の幹 collider 修正 (Issue #31 スコープ 1+2) | ジャンプで柱/木の上に乗れる挙動を解消 |
+| **#33** | 中央広場モニュメントを装飾化 (Issue #31 追加対応) | カメラ回転時に「浮いて見える」現象 (Image #3) を根本解消 |
+
+### PR #30 詳細
+- `src/entities/Player.ts`: dance state 追加 (DANCE_DURATION_SEC=3.6s、4 枚 sprite ローテ、水平入力ゼロ化、jump 入力ガード)
+- `src/core/Game.ts`: handleActionPress で `DanceMission.isInArea()` 判定 → `player.startDance()`、update で dance edge 検出 → BGM 切替
+- `src/audio/AudioManager.ts`: `danceBgmGain` 専用ノード + village BGM ducking (0.22→0.04)
+- `public/assets/audio/bgm-dance.mp3`: Mixkit "Karma" by Michael Ramir C. (EDM 2:15, Mixkit License, 商用 OK)
+- `public/assets/images/tadakayo-front-dance-{1..4}.png`: nano-banana 生成 (白インナー除去 reroll で dance-3/4 再生成)
+- Codex セカンドオピニオン反映: 連打リスタート方式、水平入力のみゼロ化、jump バッファ暴発防止
+
+### PR #32/#33 詳細 (Issue #31 対応)
+- タダレク広場 4 本柱: `addBoxMesh` → 純 Three.js mesh (collider 削除)
+- 木の幹: `addStaticCylinder(1.1, 0.28, y:1.1)` → `addStaticCylinder(0.5, 0.28, y:0.5)` (腰高に縮小)
+- 中央広場モニュメント (赤い台座 + ピンクキューブ): collider 削除、mesh 維持
 
 ## 次セッションで最初にやること
 
 1. `cd /Users/yyyhhh/Projects/tadakayo/game-ai && direnv allow` で `GH_TOKEN` 読み込み
-2. **本番 URL の最終確認**(https://yasushi-honda-prog.github.io/tadakayo-game/):
-   - 全 5 ミッション完走 + スコア画面表示 + リプレイ
-   - キャラ表示が赤靴 + 黒アウトラインで脚周り赤縁なし
-   - 初回ロード体感が軽い (DevTools Network で main 138 KB / rapier 836 KB が並列取得されることを確認)
-3. 残課題 (low priority、急がない):
-   - **Rapier 0.20+ アップデート時の init() deprecation 再評価** (現状 `R.init()` 無引数呼び出しで internal warning 1 件、実害なし)
-   - 新規ミッション追加 / 演出強化 / コンテンツ拡張 など自由に着手可
+2. **本番動作確認** (https://yasushi-honda-prog.github.io/tadakayo-game/):
+   - タダレク広場で E 押下 → Player が踊る (EDM BGM)、DanceMission クリア後も繰り返し可
+   - 中央広場/タダレク広場のモニュメント/柱/木に**乗れない**ことを確認
+3. 残課題 (low priority):
+   - **Issue #31 スコープ 3 (OPEN)**: 段差エッジで capsule が浮く Rapier KCC 挙動 (P2、本番様子見、修正候補は Issue コメント記録済)
+   - **Rapier 0.20+ アップデート時の init() deprecation 再評価**
+   - 新規ミッション追加 / 演出強化 / コンテンツ拡張など自由に着手可
 4. 不明な場合は `/catchup` で最新 Issue / PR / handoff を再確認
 
 ## これまでの経緯
@@ -46,6 +59,8 @@
 | 5-F | 演出 + ScoreScreen + DanceNpc + HUD ヒント + SkyDome (PR #17, 18) | ✅ |
 | 5-F hotfix | 影 renderOrder / 靴穴埋め / contact shadow 全廃 / NPC 影削除 / preload / 床上ハート影 (PR #19-24) | ✅ |
 | 6 polish | 赤靴 sprite 再生成 (#26) / bundle code split (#27) / preload crossorigin (#28) | ✅ |
+| 5-G dance | Player ダンス機能 + 専用 sprite + EDM BGM (PR #30) | ✅ |
+| 5-G polish | 柱/木/モニュメント collider 修正 (PR #32, #33、Issue #31 スコープ 1+2+追加) | ✅ |
 
 詳細プラン: `/Users/yyyhhh/.claude/plans/yasushi-honda-prog-github-githubpages-us-transient-summit.md`
 
@@ -93,6 +108,8 @@
 | ~~脚周りの細い赤縁 (PR #19 v8 妥協点)~~ | ✅ 解消 | PR #26 nano-banana 直接生成で根本解消 |
 | ~~bundle 2,773 KB / gzip 974 KB~~ | ✅ 解消 | PR #27 dynamic import で main 538 KB / gzip 138 KB |
 | ~~preload credentials mode 不一致 warning 40+ 件~~ | ✅ 解消 | PR #28 crossorigin="anonymous" 追加で 41→1 |
+| ~~Player が柱/木/中央モニュメントの上に乗れる~~ | ✅ 解消 | PR #32/#33 で collider 装飾化、Issue #31 スコープ 1+2+追加完了 |
+| **Issue #31 OPEN: 段差エッジで capsule が浮く Rapier KCC 挙動** | P2 | スコープ 3 残課題、修正候補 4 案を Issue コメント記録済。本番ユーザー報告を待って判断 (snap 距離拡大 / capsule radius 縮小 / autostep 上限調整 / マップ collider 面取り) |
 | Rapier `init()` deprecated parameters warning | Low | `@dimforge_rapier3d-compat.js:2516` ライブラリ内部の自己呼び出し起因、app コードから修正不可。Rapier 0.20+ アップデート時に再評価候補 |
 
 ## アーキテクチャ概要 (Phase 5-F 完了時点)
