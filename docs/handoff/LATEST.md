@@ -7,7 +7,8 @@
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **直近の PR**: Phase 5-D（NPC + 会話 + Talk ミッション + 靴透明化バグ修正 + フリー音素材導入）
+- **現在ブランチ**: `main`（同期済み、最新コミット `6c47b2f`）
+- **未マージ PR**: なし（PR #5〜#13 すべて main 反映、Deploy 完了）
 
 ## 次セッションで最初にやること
 
@@ -43,7 +44,7 @@
 | 5-B 文書 | README/CLAUDE.md/ハンドオフ更新 | ✅ PR #9 main 反映 |
 | sprite 整合化 | 14 枚を統一スタイルで再生成 + remove-checker-bg 改良 | ✅ PR #10 main 反映 |
 | 5-C | ミッション基盤 + Collect/Reach 2 本 + MissionPanel + HUD 拡張 | ✅ PR #11 main 反映 |
-| 5-D | NPC + 会話 + Talk ミッション + 靴修正 + フリー音素材 | 🔄 PR 申請中 |
+| 5-D | NPC + 会話 + Talk ミッション + 靴修正 + フリー音素材 (kenney.nl CC0) | ✅ PR #13 main 反映 |
 | 5-E | モバイル対応（仮想スティック + ボタン）+ 残ミッション | 🔜 次セッション |
 | 5-F | 演出 + パフォーマンス + 仕上げ | 🔜 |
 
