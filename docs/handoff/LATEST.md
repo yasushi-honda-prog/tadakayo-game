@@ -1,33 +1,39 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-10
+最終更新: 2026-05-11
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`（同期済み、最新コミット `6c47b2f`）
-- **未マージ PR**: なし（PR #5〜#13 すべて main 反映、Deploy 完了）
+- **現在ブランチ**: `main`（同期済み、最新コミット `bbc55bf`）
+- **未マージ PR**: なし（PR #15 main 反映、Deploy 成功）
 
 ## 次セッションで最初にやること
 
 1. `cd /Users/yyyhhh/Projects/tadakayo/game-ai && direnv allow` で `GH_TOKEN` を読み込む
-2. **本番 URL で Phase 5-D 実機操作確認**:
-   - スポーン位置: 中央広場の南手前 (x=0, z=6)
-   - HUD 上部に「現在のミッション DXの種を集めよう 0/10」が表示
-   - WASD で移動 + マウスクリックで視点ロック
-   - **タダカヨちゃんの足元に白いスニーカー** がしっかり描画されている (Phase 5-D 修正)
-   - **NPC 3 体が配置されている**:
-     - 中央広場南東 (3, 0, 3): ヨシオさん（施設長）
-     - タダレク広場ベンチ近く (15.4, 0, 4): タダさん（利用者）
-     - タダコミュ会館入口 (0, 0, -16.5): カヨさん（看護師）
-   - NPC に近づく → HUD 中央下に **「E でヨシオさんと話す」** 等の hint 表示
-   - **E キー** で会話開始 → DialogBox 表示 → E キーで line 進行 → 全 line 完了で TalkMission 進捗 +1
-   - 3 NPC 全員と会話で **「現場の声を聞こう」クリア** toast
-   - **BGM (Pizzicato 系ループ)** がタイトル画面 → 本編で流れる
-   - **SE** が pickup / mission-clear / dialog-open / dialog-next で正しく鳴る
-3. 問題なければ **Phase 5-E 着手**（モバイル対応 + 仮想スティック + 残ミッション）
+2. **本番 URL で Phase 5-E + 4 バグ修正の実機確認** (https://yasushi-honda-prog.github.io/tadakayo-game/):
+
+   ### Phase 5-E (モバイル + 全 5 ミッション)
+   - タイトル画面: フェーズタグ「Phase 5-E プロトタイプ（モバイル + 全 5 ミッション）」表示
+   - **PC 操作**: WASD + マウスクリックで視点ロック / **マウスドラッグで視点回転 (Pointer Lock 取れない場合の fallback)**
+   - **Esc / P キー** でポーズメニュー: 再開 / 音 ON-OFF / 操作説明展開 / タイトルに戻る (4 ボタン)
+   - 「タイトルに戻る」→ 再スタートで mission 5 個全部初期化 (HUD 更新・SE が動く)
+   - **モバイル端末** (iPhone Safari / Android Chrome): 仮想スティック (左) + ジャンプ/E ボタン (右下) + ⏸ ポーズ (右上) で操作 + 完走可能か
+   - URL `?ui=mobile` / `?ui=desktop` で UI 強制切替
+
+   ### Mission 4-5
+   - **Mission 4「タダレク広場で踊ろう」**: タダレク広場 (中央 14, 0, 0) の半径 4m 内で E キー (アクション) を 3 回押下 → クリア toast
+   - **Mission 5「タダカヨ村マスター」**: 4 mission 全部クリアで「🎉 タダカヨ村マスター 達成！」5 秒大型 toast (エンディング)
+
+   ### Phase 5-D 不具合 4 件の検証
+   - **靴/足元**: 全モーション (idle/run/jump/crouch) で足元に黒い円形シャドウが見え、靴が透明にならない
+   - **PointerLock**: マウスクリックで視点ロック取得 + ロック取れない環境ではドラッグで視点回転
+   - **BGM**: 「Cheerful Annoyance」12 秒ループが明るい曲として聞こえる (旧 0.54 秒の異音は解消)
+   - **キャラ向き**: D 押下で右向きスプライト、A 押下で左向きスプライト表示 (左右一貫)
+
+3. 問題なければ **Phase 5-F 着手**（演出 + パフォーマンス + 仕上げ）
 
 ## これまでの経緯
 
@@ -45,8 +51,8 @@
 | sprite 整合化 | 14 枚を統一スタイルで再生成 + remove-checker-bg 改良 | ✅ PR #10 main 反映 |
 | 5-C | ミッション基盤 + Collect/Reach 2 本 + MissionPanel + HUD 拡張 | ✅ PR #11 main 反映 |
 | 5-D | NPC + 会話 + Talk ミッション + 靴修正 + フリー音素材 (kenney.nl CC0) | ✅ PR #13 main 反映 |
-| 5-E | モバイル対応（仮想スティック + ボタン）+ 残ミッション | 🔜 次セッション |
-| 5-F | 演出 + パフォーマンス + 仕上げ | 🔜 |
+| 5-E | モバイル対応（仮想スティック + ボタン）+ 残ミッション 2 本 + Phase 5-D 不具合 4 件修正 + レビュー fix 7 件 | ✅ PR #15 main 反映 (2026-05-11) |
+| 5-F | 演出 + パフォーマンス + 仕上げ | 🔜 次セッション |
 
 詳細プラン: `/Users/yyyhhh/.claude/plans/yasushi-honda-prog-github-githubpages-us-transient-summit.md`
 
