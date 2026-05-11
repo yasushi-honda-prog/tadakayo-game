@@ -200,19 +200,22 @@ export class Village {
     rim.position.y = 0.16;
     this.object.add(rim);
 
-    // 中央モニュメント（赤い台座 + ピンクのキューブ）
-    this.addBoxMesh(
-      physics,
-      { x: 0.6, y: 0.4, z: 0.6 },
-      { x: 0, y: 0.55, z: 0 },
-      COLOR.PLAZA_RIM
+    // 中央モニュメント (Issue #31: 装飾化)
+    // 赤い台座 (上面 1.2×1.2m, h=0.95m) + ピンクキューブ (上面 0.8×0.8m, h=1.75m) は
+    // どちらも Player capsule (radius 0.35m) が乗れる寸法。collider を外して見た目だけ維持。
+    const pedestal = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.8, 1.2),
+      new THREE.MeshStandardMaterial({ color: COLOR.PLAZA_RIM, roughness: 0.7 })
     );
-    this.addBoxMesh(
-      physics,
-      { x: 0.4, y: 0.4, z: 0.4 },
-      { x: 0, y: 1.35, z: 0 },
-      COLOR.PLAZA
+    pedestal.position.set(0, 0.55, 0);
+    this.object.add(pedestal);
+
+    const monument = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 0.8, 0.8),
+      new THREE.MeshStandardMaterial({ color: COLOR.PLAZA, roughness: 0.7 })
     );
+    monument.position.set(0, 1.35, 0);
+    this.object.add(monument);
   }
 
   // ───────────────────────────────────────────────────────────
