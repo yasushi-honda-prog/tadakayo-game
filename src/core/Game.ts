@@ -75,6 +75,7 @@ export class Game {
   private danceNpcs: DanceNpc[] = [];
   private playStartMs = 0;
   private scoreScreen!: ScoreScreen;
+  private scoreScreenTimerId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(canvas: HTMLCanvasElement, physics: PhysicsWorld) {
     this.physics = physics;
@@ -176,7 +177,8 @@ export class Game {
 
     this.bus.on((event) => {
       if (event === "panel") {
-        if (!this.playing || this.pauseMenu.isVisible()) return;
+        // scoreScreen 表示中も M キーを無視 (Low 修正: スコア画面の裏で panel が開く問題)
+        if (!this.playing || this.pauseMenu.isVisible() || this.scoreScreen.isVisible()) return;
         this.missionPanel.toggle();
         if (this.missionPanel.isOpen()) this.missionPanel.render(this.missions.all);
       } else if (event === "action") {
@@ -209,8 +211,15 @@ export class Game {
     this.audio.missionClearSE();
     if (m instanceof MetaMission) {
       this.hud.flashClear(`🎉 ${m.title} 達成！`, 5000);
-      // Phase 5-F: スコア画面を 0.8 秒遅延して開く (toast を読む間)
-      window.setTimeout(() => this.scoreScreen.show(this.collectStats()), 800);
+      // Phase 5-F: スコア画面を 0.8 秒遅延して開く (toast を読む間)。
+      // resetToTitle / dispose との競合で stale show を防ぐため timer id を保持し、
+      // 発火時にも disposed/playing の世代チェックを入れる (codex+evaluator High 修正)
+      if (this.scoreScreenTimerId !== null) clearTimeout(this.scoreScreenTimerId);
+      this.scoreScreenTimerId = window.setTimeout(() => {
+        this.scoreScreenTimerId = null;
+        if (this.disposed || !this.playing) return;
+        this.scoreScreen.show(this.collectStats());
+      }, 800);
     } else {
       this.hud.flashClear(`クリア！ ${m.title}`);
     }
@@ -454,6 +463,10 @@ export class Game {
       for (const cs of this.contactShadows) {
         cs.mesh.position.x = cs.target.position.x;
         cs.mesh.position.z = cs.target.position.z;
+        // y は target の現在値 + 0.02 オフセット (Medium 修正: DanceNpc の bounce や
+        // 凹凸地面でも shadow が target 足元に追従。target の y がジャンプで上がっても
+        // 視覚的に「光源直下」の影になる)
+        cs.mesh.position.y = cs.target.position.y + 0.02;
       }
     }
 
@@ -668,7 +681,14 @@ export class Game {
     this.hideActionHint();
     this.nearestInteractableNpc = null;
     if (this.missionPanel.isOpen()) this.missionPanel.toggle();
+    // Phase 5-F: scoreScreen reopen 競合防止 + pauseMenu が ScoreScreen 経由で残るのを防ぐ
+    // (codex High 修正: scoreScreen onReplay 経路でも pauseMenu が閉じることを保証)
+    if (this.scoreScreenTimerId !== null) {
+      clearTimeout(this.scoreScreenTimerId);
+      this.scoreScreenTimerId = null;
+    }
     this.scoreScreen.hide();
+    this.pauseMenu.close();
     if (this.inputMode === "mobile") {
       this.mobileControls?.hide();
       this.touchInput?.reset();
@@ -719,6 +739,10 @@ export class Game {
   dispose(): void {
     this.disposed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    if (this.scoreScreenTimerId !== null) {
+      clearTimeout(this.scoreScreenTimerId);
+      this.scoreScreenTimerId = null;
+    }
     window.removeEventListener("resize", this.handleResize);
     this.kbInput.dispose();
     this.touchInput?.dispose();
@@ -731,6 +755,9 @@ export class Game {
     for (const c of this.collectibles) c.dispose();
     for (const n of this.npcs) n.dispose();
     for (const d of this.danceNpcs) d.dispose();
+    // Phase 5-F: contact shadow mesh を scene から remove してから geometry/material dispose
+    // (Medium 修正: scene 残留 mesh が dispose 済み geometry を参照する不整合を解消)
+    this.clearContactShadows();
     this.contactShadowGeometry.dispose();
     this.contactShadowMaterial.dispose();
     if (this.skyDome !== null) {

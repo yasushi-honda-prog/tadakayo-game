@@ -75,6 +75,8 @@ export class Village {
   private waterDroplets: THREE.InstancedMesh | null = null;
   private dropletState: Array<{ vx: number; vy: number; vz: number; t: number; life: number }> = [];
   private flagMesh: THREE.Mesh | null = null;
+  // animate() 内で毎フレーム new するのを避けるため hoist (Medium 修正: GC pressure 軽減)
+  private readonly dropletDummy = new THREE.Object3D();
 
   constructor(physics: PhysicsWorld) {
     this.object = new THREE.Group();
@@ -104,7 +106,7 @@ export class Village {
     if (this.waterDroplets !== null) {
       const baseY = 1.6;
       const g = -3.0; // 弱重力で粒子の弧を見やすく
-      const dummy = new THREE.Object3D();
+      const dummy = this.dropletDummy; // hoist 済 instance を再利用
       for (let i = 0; i < FOUNTAIN_PARTICLES; i++) {
         const st = this.dropletState[i];
         st.t += dt;
