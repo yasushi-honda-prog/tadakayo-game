@@ -15,6 +15,14 @@ type Pose = "idle" | "run" | "jump" | "crouch";
  */
 type SpriteSet = Record<Direction, Partial<Record<Pose, THREE.Texture>>>;
 
+/** ダンス state の総再生時間 (s)。アクション押下時に毎回これだけリセット */
+const DANCE_DURATION_SEC = 3.6;
+/** ダンス sprite ローテ間隔 (s)。4 枚を 0.4s 毎に切替 → 1.6s で 1 ループ */
+const DANCE_FRAME_SEC = 0.4;
+/** ダンス中の縦バウンス振幅 (m) + 周期 (rad/s) */
+const DANCE_BOUNCE_AMP = 0.12;
+const DANCE_BOUNCE_RATE = 8.0;
+
 /**
  * プレイヤー（タダカヨちゃん）。
  * - Rapier KinematicCharacterController で物理駆動
@@ -27,6 +35,7 @@ export class Player {
   private readonly sprite: THREE.Sprite;
   private readonly material: THREE.SpriteMaterial;
   private readonly textures: SpriteSet;
+  private readonly danceTextures: THREE.Texture[];
   private readonly body: RAPIER.RigidBody;
   private readonly collider: RAPIER.Collider;
   private readonly cc: RAPIER.KinematicCharacterController;
@@ -39,6 +48,13 @@ export class Player {
   private jumpBufferTimer = 0;
   /** キャラの向き（移動方向に追従。未移動ならカメラ前方向） */
   private facingYaw = 0;
+
+  /** ダンス残り時間 (s)。>0 のときダンス中。0 で通常状態 */
+  private danceTimer = 0;
+  /** ダンス開始からの経過時間 (s)。texture index 計算に使用 */
+  private danceElapsed = 0;
+  /** 現在表示中のダンス texture index (texture 切替の冗長更新回避用) */
+  private danceTextureIndex = -1;
 
   constructor(physics: PhysicsWorld, bus: InputBus) {
     this.physics = physics;
@@ -57,6 +73,7 @@ export class Player {
     // 描画 (sprite ビルボード)
     this.object = new THREE.Group();
     this.textures = this.loadTextures();
+    this.danceTextures = this.loadDanceTextures();
     this.material = new THREE.SpriteMaterial({
       map: this.textures.front.idle ?? this.textures.front.run,
       transparent: true,
@@ -68,7 +85,10 @@ export class Player {
     this.object.add(this.sprite);
 
     bus.on((event) => {
-      if (event === "jump") this.jumpBufferTimer = PLAYER.JUMP_BUFFER_SEC;
+      // ダンス中はジャンプを完全に無視 (終了直後のジャンプ暴発も防止)
+      if (event === "jump" && !this.isDancing()) {
+        this.jumpBufferTimer = PLAYER.JUMP_BUFFER_SEC;
+      }
     });
   }
 
@@ -108,13 +128,60 @@ export class Player {
     };
   }
 
+  private loadDanceTextures(): THREE.Texture[] {
+    const loader = new THREE.TextureLoader();
+    const base = import.meta.env.BASE_URL;
+    const names = [
+      "tadakayo-front-dance-1",
+      "tadakayo-front-dance-2",
+      "tadakayo-front-dance-3",
+      "tadakayo-front-dance-4",
+    ];
+    return names.map((name) => {
+      const tex = loader.load(`${base}assets/images/${name}.png`);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      return tex;
+    });
+  }
+
+  isDancing(): boolean {
+    return this.danceTimer > 0;
+  }
+
+  /**
+   * ダンス state を開始 (もしくは継続中ならリスタート)。
+   * - 残り時間を {@link DANCE_DURATION_SEC} に再セット
+   * - texture rotation を 1 枚目から再生
+   * - 直前にバッファされていた jump 入力をクリア (終了直後の暴発防止)
+   *
+   * @returns 常に true (将来的な失敗条件追加用に boolean を返しておく)
+   */
+  startDance(): boolean {
+    this.danceTimer = DANCE_DURATION_SEC;
+    this.danceElapsed = 0;
+    this.danceTextureIndex = -1;
+    this.jumpBufferTimer = 0;
+    return true;
+  }
+
   update(dt: number, camera: ThirdPersonCamera): void {
-    // 入力 → ワールド XZ ベクトル
+    // ダンス state 更新 (move 入力ゼロ化のため update 冒頭で進める)
+    const dancing = this.isDancing();
+    if (dancing) {
+      this.danceTimer = Math.max(0, this.danceTimer - dt);
+      this.danceElapsed += dt;
+    }
+
+    // 入力 → ワールド XZ ベクトル (ダンス中は水平移動だけゼロ化)
     const forward = camera.getForwardXZ();
     const right = camera.getRightXZ();
     const move = new THREE.Vector3();
-    move.addScaledVector(forward, this.bus.state.moveY);
-    move.addScaledVector(right, this.bus.state.moveX);
+    if (!dancing) {
+      move.addScaledVector(forward, this.bus.state.moveY);
+      move.addScaledVector(right, this.bus.state.moveX);
+    }
     const moveLen = move.length();
     if (moveLen > 1) move.divideScalar(moveLen);
 
@@ -161,9 +228,12 @@ export class Player {
     // ポーズ + 方向 → テクスチャ + flip
     this.applyDirectionalSprite(moveLen, camera.getYaw());
 
-    // 走り中の足音的な微振動（接地時のみ）
+    // sprite 縦位置: ダンス中は専用バウンス、それ以外は走り中の足音的な微振動 (接地時のみ)
     const baseY = PLAYER.SPRITE_SIZE.height / 2 - 0.05;
-    if (this.grounded && moveLen > 0.05) {
+    if (dancing) {
+      const bounce = Math.max(0, Math.sin(this.danceElapsed * DANCE_BOUNCE_RATE)) * DANCE_BOUNCE_AMP;
+      this.sprite.position.y = baseY + bounce;
+    } else if (this.grounded && moveLen > 0.05) {
       this.sprite.position.y = baseY + Math.sin(performance.now() * 0.018) * 0.04;
     } else {
       this.sprite.position.y = baseY;
@@ -172,6 +242,21 @@ export class Player {
 
   /** カメラとキャラの相対角度から方向を判定し、テクスチャ + 反転を反映 */
   private applyDirectionalSprite(moveLen: number, cameraYaw: number): void {
+    // ダンス中は方向判定をバイパスし、専用 4 枚を時間ベースでローテ
+    if (this.isDancing()) {
+      const idx = Math.floor(this.danceElapsed / DANCE_FRAME_SEC) % this.danceTextures.length;
+      if (idx !== this.danceTextureIndex) {
+        this.danceTextureIndex = idx;
+        this.material.map = this.danceTextures[idx];
+        this.material.needsUpdate = true;
+      }
+      this.sprite.scale.set(PLAYER.SPRITE_SIZE.width, PLAYER.SPRITE_SIZE.height, 1);
+      return;
+    }
+
+    // 通常時: ダンス texture index をリセット (次回 dance 開始時に 1 枚目から再生)
+    this.danceTextureIndex = -1;
+
     let pose: Pose;
     if (!this.grounded) pose = "jump";
     else if (moveLen > 0.05) pose = "run";
@@ -220,12 +305,16 @@ export class Player {
     this.grounded = false;
     this.coyoteTimer = 0;
     this.jumpBufferTimer = 0;
+    this.danceTimer = 0;
+    this.danceElapsed = 0;
+    this.danceTextureIndex = -1;
   }
 
   dispose(): void {
     for (const dir of Object.values(this.textures)) {
       for (const tex of Object.values(dir)) tex?.dispose();
     }
+    for (const tex of this.danceTextures) tex.dispose();
     this.material.dispose();
     this.physics.removeCharacterController(this.cc);
   }
