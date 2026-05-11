@@ -7,22 +7,26 @@
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`（同期済み、最新コミット `38c0e4f`）
-- **未マージ PR**: なし（PR #5〜#11 すべて main 反映、Deploy 完了）
+- **直近の PR**: Phase 5-D（NPC + 会話 + Talk ミッション + 靴透明化バグ修正 + フリー音素材導入）
 
 ## 次セッションで最初にやること
 
 1. `cd /Users/yyyhhh/Projects/tadakayo/game-ai && direnv allow` で `GH_TOKEN` を読み込む
-2. **本番 URL で Phase 5-B + 5-C 実機操作確認**:
+2. **本番 URL で Phase 5-D 実機操作確認**:
    - スポーン位置: 中央広場の南手前 (x=0, z=6)
    - HUD 上部に「現在のミッション DXの種を集めよう 0/10」が表示
    - WASD で移動 + マウスクリックで視点ロック
-   - **DXの種**（赤いハート）が中央広場周辺・パス沿い・タダレク広場に 10 個浮遊回転
-     - 1 個近づく → SE 鳴動 + 進捗が 1/10 → ... → 10/10 で「クリア！」toast
-   - **タダスクの塔へ**: 西の塔 (-18, 4) の 5 段ジャンプを Space で登る → 頂上で「クリア！」toast
-   - **M キー** でミッションパネル開閉、active/completed 表示確認
-   - 街灯・木・ベンチに正しく衝突、外周 30m 柵で落下防止
-3. 問題なければ **Phase 5-D 着手**（NPC + 会話 + Talk ミッション 1 本）
+   - **タダカヨちゃんの足元に白いスニーカー** がしっかり描画されている (Phase 5-D 修正)
+   - **NPC 3 体が配置されている**:
+     - 中央広場南東 (3, 0, 3): ヨシオさん（施設長）
+     - タダレク広場ベンチ近く (15.4, 0, 4): タダさん（利用者）
+     - タダコミュ会館入口 (0, 0, -16.5): カヨさん（看護師）
+   - NPC に近づく → HUD 中央下に **「E でヨシオさんと話す」** 等の hint 表示
+   - **E キー** で会話開始 → DialogBox 表示 → E キーで line 進行 → 全 line 完了で TalkMission 進捗 +1
+   - 3 NPC 全員と会話で **「現場の声を聞こう」クリア** toast
+   - **BGM (Pizzicato 系ループ)** がタイトル画面 → 本編で流れる
+   - **SE** が pickup / mission-clear / dialog-open / dialog-next で正しく鳴る
+3. 問題なければ **Phase 5-E 着手**（モバイル対応 + 仮想スティック + 残ミッション）
 
 ## これまでの経緯
 
@@ -39,76 +43,93 @@
 | 5-B 文書 | README/CLAUDE.md/ハンドオフ更新 | ✅ PR #9 main 反映 |
 | sprite 整合化 | 14 枚を統一スタイルで再生成 + remove-checker-bg 改良 | ✅ PR #10 main 反映 |
 | 5-C | ミッション基盤 + Collect/Reach 2 本 + MissionPanel + HUD 拡張 | ✅ PR #11 main 反映 |
-| 5-D | NPC + 会話 + Talk ミッション 1 本 | 🔜 次セッション |
-| 5-E | モバイル対応（仮想スティック + ボタン）+ 残ミッション | 🔜 |
+| 5-D | NPC + 会話 + Talk ミッション + 靴修正 + フリー音素材 | 🔄 PR 申請中 |
+| 5-E | モバイル対応（仮想スティック + ボタン）+ 残ミッション | 🔜 次セッション |
 | 5-F | 演出 + パフォーマンス + 仕上げ | 🔜 |
 
 詳細プラン: `/Users/yyyhhh/.claude/plans/yasushi-honda-prog-github-githubpages-us-transient-summit.md`
 
-## Phase 5-C で追加された Mission 基盤
+## Phase 5-D で追加された NPC + 会話 + 音素材基盤
 
 ### ディレクトリ
 
 ```
-src/missions/
-├── Mission.ts              # 抽象 base + MissionContext (不変スナップショット)
-├── MissionManager.ts       # active/completed + onChange/onCleared
-└── missions/
-    ├── CollectMission.ts   # Collectible 配列を集計、全取得でクリア
-    └── ReachMission.ts     # XZ 距離 + Y tolerance で目標到達判定
-src/entities/Collectible.ts # 浮遊回転ハート (球+円錐)、近接 0.9m で取得
-src/ui/MissionPanel.ts      # M キー開閉 modal、active/completed 一覧
-src/ui/HUD.ts               # 現在ミッション + 進捗 X/N + クリア toast
+src/
+├── entities/NPC.ts           # ビルボード sprite + 状態 (idle/interactable/talking) + 近接判定 + glow pulse
+├── missions/missions/
+│   └── TalkMission.ts        # visitedIds Set 集計 (イベント駆動)
+├── ui/DialogBox.ts           # 吹き出し UI、E キーで line 進行、onComplete 発火
+└── audio/AudioManager.ts     # kenney.nl OGG 素材を Web Audio decode + BGM ループ + SE
+
+public/assets/audio/          # 全 7 ファイル ~50KB
+├── bgm-village.ogg           # Pizzicato jingle (ループ再生)
+├── se-pickup.ogg             # confirmation_001 (DXの種取得)
+├── se-mission-clear.ogg      # Hit jingle (ミッションクリア)
+├── se-jump.ogg               # click_001
+├── se-land.ogg               # drop_001
+├── se-dialog-open.ogg        # glass_001 (会話開始)
+└── se-dialog-next.ogg        # click_002 (line 進行)
 ```
 
-### Mission base 拡張パターン (Phase 5-D 設計の鍵)
-
-`src/missions/Mission.ts` の docstring に明記済みの 3 パターン:
-1. **位置駆動** (ReachMission): 毎フレーム `ctx.playerPosition` で判定
-2. **収集駆動** (CollectMission): 外部 entity (Collectible) を集計
-3. **イベント駆動** (TalkMission, 5-D で実装): NPC.onTalk から `mission.notifyEvent()` を呼んで `current` 加算。`update(ctx)` は no-op。
-
-`MissionContext.playerPosition` は **`Readonly<{x,y,z}>` の不変スナップショット**（PR #11 codex review Medium 対応で Vector3 mutation 経路を断った）。
-
-## Phase 5-D 着手プラン（次セッション）
-
-新規ファイル:
+### NPC 状態遷移（CLAUDE.md CRITICAL: status 設計→状態遷移図先行）
 
 ```
-src/entities/NPC.ts                  # ビルボード sprite + 近接 trigger + onTalk emit
-src/missions/missions/TalkMission.ts # 訪問済み NPC ID set を集計
-src/ui/DialogBox.ts                  # 吹き出し UI、E キー/タップで進行
-public/assets/images/
-├── npc-elder.png                    # 高齢者 NPC (nano-banana 生成)
-├── npc-nurse.png                    # 看護師 NPC
-└── npc-manager.png                  # 施設長 NPC
+idle ──(distance ≤ 2.0m)──> interactable ──(E キー)──> talking
+  ↑                                ↑                          │
+  │                                │                          │
+  └──(distance > 2.6m)─────────────┘                          │
+  └──(全 line 完了 + E キー、visited 記録)──────────────────┘
 ```
 
-NPC 配置案:
-- 高齢者: タダレク広場のベンチ近く `(18 - 2.6, 0, 4)`
-- 看護師: タダコミュ会館の入口 `landmarks.hallEntrance`
-- 施設長: 中央広場の南東 `(3, 0, 3)`
+距離閾値はヒステリシス (RELEASE 2.6m > INTERACT 2.0m) で境界振動防止。
 
-ミッション: 「現場の声を聞こう」= 全 3 NPC と E キーで会話。
+### TalkMission のイベント駆動パターン
 
-NPC.onTalk から TalkMission.notifyTalked(npcId) を呼ぶ。Mission の cleared 判定は visitedIds.size >= 3。
+Mission.ts の docstring で予告した「イベント駆動」を初実装:
+- 毎フレーム判定なし (`update` は no-op)
+- `notifyTalked(npcId)` で current 加算 (重複防止 Set)
+- `requiredIds` 外の NPC との会話は無視
 
-入力: E キー (action) で近接 NPC があれば dialog 開始 → DialogBox が次の line を表示 → 最後で onTalk 発火。
+### Game.ts の handleActionPress ディスパッチ
 
-## アーキテクチャ概要
+E キー押下で:
+- DialogBox 開いていれば → `dialogBox.advance()` + `dialogSE()`
+- 閉じていて最寄り interactable NPC があれば → `startNpcTalk(npc)` + `dialogOpenSE()`
+
+会話完了 callback で `talkMission.notifyTalked(npc.id)` + `refreshMissionUI()`。
+
+## 靴透明化バグ修正（ユーザー指摘 2026-05-10）
+
+### 問題
+- タダカヨちゃん 14 枚 + NPC 3 枚すべてで「下端中央 95% が alpha=0」状態
+- ゲーム内で「赤短パン + 肌色脚 + 靴透明」の見た目になっていた
+- 原因: チェッカー背景の白セル + キャラの白いスニーカーが連結成分で外周まで通り、`remove-checker-bg.py` が背景判定して透明化
+
+### 修正
+1. **プロンプト強化**: 「靴は太い黒輪郭で囲む (CRITICAL)」「背景は MEDIUM GRAY (RGB 130,130,130) と白の交互、白だけにしない」を強調 → 17 枚再生成
+2. **`scripts/remove-checker-bg.py` 改良**: `binary_dilation(char_mask, iterations=12)` で character 領域を膨張させ、内部に取り囲まれた背景判定ピクセル (= 靴の中身) を救済
+
+## フリー音素材導入
+
+- **ライセンス**: kenney.nl (CC0、商用利用 OK、クレジット任意)
+- **採用**: Interface Sounds (UI SE) + Music Jingles (Pizzicato BGM ループ + Hit jingle)
+- **AudioManager**: Web Audio で fetch + decodeAudioData → AudioBuffer 保持 → BufferSourceNode で再生。decode 失敗時は内部合成 fallback (Phase 5-C 以前のロジックを保険として残す)
+- **クレジット**: README に Kenney 出典を追記
+
+## アーキテクチャ概要 (Phase 5-D 時点)
 
 ```
 src/
 ├── core/
 │   ├── PhysicsWorld.ts     # Rapier WASM ラッパー
-│   └── Game.ts             # メインループ + MissionManager 統合
+│   └── Game.ts             # メインループ + MissionManager 統合 + NPC 配置 + handleActionPress
 ├── entities/
 │   ├── Player.ts           # KinematicCharacterController + 4 方向 sprite
 │   ├── Camera.ts           # 三人称後方追従、yaw/pitch
 │   ├── Collectible.ts      # ハート (浮遊回転 + 近接トリガ)
-│   └── NPC.ts              # 5-D 新規
+│   └── NPC.ts              # ビルボード sprite + 状態 + 近接 + glow (5-D)
 ├── world/Village.ts        # タダカヨ村全体
-├── missions/               # 5-C で追加した Mission 基盤
+├── missions/
 │   ├── Mission.ts
 │   ├── MissionManager.ts
 │   └── missions/{Collect,Reach,Talk}Mission.ts
@@ -117,10 +138,10 @@ src/
 │   └── KeyboardMouseInput.ts  # WASD + Space + E + M + Shift + Pointer Lock
 ├── ui/
 │   ├── TitleScreen.ts
-│   ├── HUD.ts              # 座標 + 現在ミッション + 進捗 + toast
+│   ├── HUD.ts              # 座標 + 現在ミッション + 進捗 + toast + actionHint (5-D)
 │   ├── MissionPanel.ts     # M キー開閉
-│   └── DialogBox.ts        # 5-D 新規
-├── audio/AudioManager.ts   # SE/BGM 合成 (pickupSE / missionClearSE / dialogSE 実装済)
+│   └── DialogBox.ts        # NPC 会話 (5-D)
+├── audio/AudioManager.ts   # kenney.nl OGG decode + BGM ループ + SE 6 種 (5-D)
 ├── config/{brand,gameConfig}.ts
 └── main.ts
 ```
@@ -130,11 +151,10 @@ src/
 - **クオリティ最優先**「どこに出しても恥ずかしくないクオリティ」「3D マリオレベル」
 - **時間がかかってもよい**（10 営業日想定）
 - 介護業界 DX 推進担当者がプレイ → 操作はシンプルに、難易度は緩めに
-- これまでに却下されたもの:
-  - エンドレスランナー（タイミングストレス、単調）
-  - 圧縮しゃがみ（雑なモーション）
-  - 矢印アイコンが手前で巨大化（空間表現として違和感）
-- **本セッションで対応**: 14 枚スプライトの服装・足元・顔つきの整合性を統一プロンプト再生成で復旧 (PR #10)
+- **本セッションで対応**:
+  1. Phase 5-D 実装 (NPC 3 体 + Talk ミッション)
+  2. 靴透明化バグ修正 (17 枚再生成 + remove-checker-bg.py 改良)
+  3. BGM/SE フリー素材導入 (kenney.nl CC0、AudioManager 再構築)
 
 ## アカウント・認証
 
@@ -142,19 +162,19 @@ src/
 - `.envrc` で `GH_TOKEN` をローカル閉じ込め（direnv allow 済）
 - グローバル `gh auth switch` は **しない**
 - git identity も `--local` で `yasushi-honda-prog` 名義
-- nano-banana (Vertex AI / Gemini 3.1 Flash Image) は `gcloud auth print-access-token --account=hy.unimail.11@gmail.com` で取得した user account token を使う（skill 規定 + Phase 2/5-A/5-sprite で同パターン）
+- nano-banana (Vertex AI / Gemini 3.1 Flash Image) は `gcloud auth print-access-token --account=hy.unimail.11@gmail.com` で取得した user account token を使う
 
-### nano-banana 利用時の注意（PR #10 で蓄積した運用知）
+### nano-banana 利用時の注意
 
-- 連続生成は 6 秒間隔でも 5-6 枚で 429 (quota exhaust) に遭遇する。**実用は 12-15 秒間隔 + リトライ (15→30→60s exponential backoff)** が安全
-- 14 枚一括生成は 7-8 分かかる前提。run_in_background で
-- AI が暗いチェッカー柄背景を描く画像があり、`scripts/remove-checker-bg.py` の旧版 (`r >= 180` 閾値) では透明化失敗。改良版 (透明 + 純黒 + 明灰を bg_candidate) で対応済み
+- 連続生成は 12-15 秒間隔 + exponential backoff リトライ (15→30→60s) 必須
+- 17 枚再生成は約 8-10 分かかる前提で `run_in_background`
+- スタイル整合性のため、共通プロンプト (素材・色・輪郭線太さ) を統一しテキストで明示する
+- **靴の輪郭線は明示要求**:「shoes must have thick black outline INCLUDING the bottom sole」「background must be MEDIUM GRAY (RGB 130,130,130) and WHITE squares, never all white」
+- 暗チェッカー対応 + 靴保護: `scripts/remove-checker-bg.py` 最新版で透明化
 
-## リポジトリ設定の積み残し（次回ユーザー判断）
+## リポジトリ設定の積み残し
 
-- **デフォルトブランチが `feat/bootstrap` のまま**残っている（Phase 0 初期化の名残）。
-  PR 作成時の base が誤って `feat/bootstrap` になり、毎回 `gh pr edit <N> --base main` で
-  修正している。次回ユーザー認可があれば以下を実行して恒久解決:
+- **デフォルトブランチが `feat/bootstrap` のまま**残っている。次回ユーザー認可で:
   ```bash
   gh api -X PATCH /repos/yasushi-honda-prog/tadakayo-game -f default_branch=main
   ```
@@ -168,10 +188,10 @@ src/
 
 ## 既知の制約
 
-- bundle size 2.74 MB (gzip 965.5 KB) — Rapier WASM が大半。Phase 5-F で code split 検討
+- bundle size 約 2.75 MB (gzip 967.84 KB) — Rapier WASM が大半。Phase 5-F で code split 検討
 - iOS Safari は Pointer Lock が限定的サポート → モバイル操作は Phase 5-E で仮想スティック実装予定
 - favicon.ico 404（実害なし、Phase 5-F でファビコン追加）
-- DXの種 (Heart) は球 2 + 円錐の幾何形状。Phase 5-F で nano-banana の専用テクスチャに差し替え検討
+- BGM は Pizzicato jingle (約 4 秒) のループのため単調。Phase 5-F で長尺 BGM 検討
 
 ## 公式作品としての位置づけ
 

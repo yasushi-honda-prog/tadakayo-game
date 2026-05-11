@@ -21,14 +21,14 @@
         <div id="title-screen" class="screen visible">
           <img class="title-logo-img" src="./assets/images/title-logo.png" alt="タダカヨ村" />
           <p class="title-subtitle">タダカヨちゃんのDX大冒険 — オープンワールド版</p>
-          <div class="phase-tag">Phase 5-C プロトタイプ（ミッション）</div>
+          <div class="phase-tag">Phase 5-D プロトタイプ（NPC + 会話）</div>
           <button id="start-button" class="primary-button" type="button">スタート</button>
           <button id="mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
           <div class="title-hint">
             <strong>PC 操作:</strong><br />
-            WASD / 矢印 で移動 ・ Space でジャンプ ・ E でアクション<br />
+            WASD / 矢印 で移動 ・ Space でジャンプ ・ <strong>E で NPC と会話</strong><br />
             <strong>マウスクリックで視点ロック</strong>、マウス移動で視点回転 ・ Shift で走る<br />
-            （Esc で視点ロック解除）
+            M でミッション一覧 ・ Esc で視点ロック解除
           </div>
         </div>
         <div id="hud" class="hud hidden">
@@ -42,6 +42,19 @@
             <span id="hud-mission-progress" class="hud-mission-progress">0/0</span>
           </div>
           <div id="hud-toast" class="hud-toast hidden">クリア！</div>
+          <div id="hud-action-hint" class="hud-action-hint hidden">
+            <span class="hud-action-key">E</span>
+            <span id="hud-action-target">で話しかける</span>
+          </div>
+        </div>
+        <div id="dialog-box" class="dialog-box hidden">
+          <div class="dialog-card">
+            <div class="dialog-header">
+              <span class="dialog-speaker" id="dialog-speaker">—</span>
+            </div>
+            <div class="dialog-body" id="dialog-body">—</div>
+            <div class="dialog-hint" id="dialog-hint">▼ 続ける (E)</div>
+          </div>
         </div>
         <div id="mission-panel" class="mission-panel hidden">
           <div class="mission-panel-card">

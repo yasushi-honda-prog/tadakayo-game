@@ -37,20 +37,30 @@
 | Vite 5 + TypeScript 5 | ✓ | ビルド/型 |
 | Noto Sans JP, Web Audio API | ✓ | フォント、音 |
 
-## ディレクトリ構成（Phase 5-C 時点）
+## ディレクトリ構成（Phase 5-D 時点）
 
 ```
 src/
-├── core/         # PhysicsWorld, Game (メインループ + MissionManager 統合)
-├── entities/     # Player, Camera, Collectible, NPC (5-D 予定)
+├── core/         # PhysicsWorld, Game (メインループ + MissionManager + NPC 配置 + handleActionPress)
+├── entities/     # Player, Camera, Collectible, NPC (ビルボード + 状態 idle/interactable/talking + 近接判定)
 ├── world/        # Village (5-B)
 ├── input/        # InputBus (move/look/jump/action/run/pause/panel), KeyboardMouseInput, TouchInput (5-E 予定)
-├── ui/           # TitleScreen, HUD (座標+ミッション+toast), MissionPanel (M キー), DialogBox (5-D 予定), MobileControls (5-E 予定)
-├── missions/     # Mission (抽象), MissionManager, missions/{Collect,Reach}Mission, TalkMission (5-D 予定)
-├── audio/        # AudioManager (pickupSE / missionClearSE / dialogSE 実装済)
+├── ui/           # TitleScreen, HUD (座標+ミッション+toast+actionHint), MissionPanel (M キー), DialogBox (E キー会話), MobileControls (5-E 予定)
+├── missions/     # Mission (抽象), MissionManager, missions/{Collect,Reach,Talk}Mission
+├── audio/        # AudioManager (kenney.nl OGG decode + BGM ループ + SE 6 種)
 ├── config/       # brand.ts, gameConfig.ts (PHYSICS / PLAYER / CAMERA)
 └── styles/main.css
 ```
+
+## アセット (Phase 5-D 時点)
+
+```
+public/assets/
+├── images/       # タダカヨちゃん 14 + NPC 3 (elder/nurse/manager) + title-logo (計 18 PNG)
+└── audio/        # bgm-village.ogg (Pizzicato ループ) + se-{pickup,mission-clear,jump,land,dialog-open,dialog-next}.ogg
+```
+
+音素材ライセンス: [Kenney Interface Sounds](https://kenney.nl/assets/interface-sounds) + [Kenney Music Jingles](https://kenney.nl/assets/music-jingles) (CC0、商用 OK)。クレジットは README に記載。
 
 ## ブランド定数（`src/config/brand.ts`）
 
