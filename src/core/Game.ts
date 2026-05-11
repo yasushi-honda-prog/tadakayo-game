@@ -664,12 +664,14 @@ export class Game {
     this.hud.show();
     this.refreshMissionUI();
     if (this.inputMode === "mobile") this.mobileControls?.show();
-    // Phase 5-F: スタート時刻 + プレイヤー contact shadow 登録 (再 startPlay 時も clean)
+    // Phase 5-F: スタート時刻記録
     this.playStartMs = performance.now();
     this.elapsed = 0;
-    if (!this.contactShadows.some((cs) => cs.target === this.player.object)) {
-      this.addContactShadow(this.player.object);
-    }
+    // **contact shadow は無効化**: Player の object.position は physics capsule の center
+    // (地面 +0.55m) のため、影 mesh が「キャラの腰〜頭の高さ」に空中固定されて表示される
+    // 違和感があった (PR #20 後ユーザー実機報告)。sprite には既に fix-sprites.py で
+    // 黒い楕円フットシャドウが焼き込まれているため、3D contact shadow を全廃しても
+    // 接地表現は維持される。
     this.playing = true;
   }
 
