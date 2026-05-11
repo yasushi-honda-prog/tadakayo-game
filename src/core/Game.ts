@@ -329,12 +329,6 @@ export class Game {
 
       // NPC 近接判定 + 「E で話す」ヒント更新
       this.updateNpcsAndHint(this.player.position, dt);
-
-      this.hud.update({
-        x: this.player.position.x,
-        y: this.player.position.y,
-        z: this.player.position.z,
-      });
     }
 
     this.renderer.render(this.scene, this.camera.camera);

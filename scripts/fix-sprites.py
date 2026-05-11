@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-スプライト整合化 + 靴シャドウ強制 (Phase 5-E バグ修正)
+スプライト整合化 + 靴シャドウ強制 + 靴赤色化 (Phase 5-E / Phase 5-F)
 
 問題:
 1. tadakayo-side-idle.png / tadakayo-side-run.png が「右向き」になっておらず、
    実際は左向き or 正面気味の絵が混じっていた → 右移動時に違和感
 2. 全 sprite で run/jump 系の靴透明 (下端中央 opaque 0-12%) → 走ったり跳んだりすると靴が消える
+3. 白いスニーカーが背景の白チェッカー柄と区別がつかず、透過処理で部分消失
 
 対処:
 1. 全 side-{pose}.png を side-left-{pose}.png の水平反転で再生成 (左右一貫性確保)
 2. 全 14 sprite (front/back/sideLeft/sideRight × idle/run/jump/crouch) の下端中央に
    黒い楕円フットシャドウを強制描画 → 靴がなくても「足元に影」として自然に見える
+3. 下端 30% 領域内の白いピクセルをブランド赤 (#e33535) に置換 → 透過リスクを根絶
+   + ブランドカラーとの整合 (短パン領域は下端 30% 外なので影響なし)
 
 使用法:
     python3 scripts/fix-sprites.py
@@ -108,6 +111,56 @@ def add_foot_shadow(path: str) -> tuple[float, float, str]:
     return before, after, "applied"
 
 
+def colorize_shoes_red(path: str) -> tuple[int, str]:
+    """
+    画像下端 30% 領域内の「白っぽい不透明ピクセル」をブランド赤 (#e33535) に置換。
+
+    判定条件 (and):
+    - alpha > 200 (不透明)
+    - R, G, B all >= 200 (白〜薄灰)
+
+    => 白い靴 / 白い靴底のみ対象。黒アウトライン (RGB 低) と肌色 (R>>G>B) は保持。
+    短パン (画像下から 30-50%) は処理範囲外なので影響なし。
+
+    **冪等性保証**: PNG metadata `tdk-shoe-color=red-v1` を sentinel に使用。
+    既に塗布済みなら再処理しない (foot-shadow sentinel は別 key で共存)。
+
+    return: (changed_pixel_count, status)
+    """
+    img = Image.open(path).convert("RGBA")
+    info = img.info or {}
+    if info.get("tdk-shoe-color") == "red-v1":
+        return 0, "skipped"
+
+    W, H = img.size
+    y_start = int(H * 0.70)  # 下から 30% (靴領域、短パンは除外)
+
+    pixels = img.load()
+    if pixels is None:
+        return 0, "error-no-pixels"
+
+    target = (227, 53, 53)  # #e33535 ブランド赤
+    changed = 0
+    for y in range(y_start, H):
+        for x in range(W):
+            px = pixels[x, y]
+            if not isinstance(px, tuple) or len(px) < 4:
+                continue
+            r, g, b, a = px[0], px[1], px[2], px[3]
+            if a > 200 and r >= 200 and g >= 200 and b >= 200:
+                pixels[x, y] = (target[0], target[1], target[2], a)
+                changed += 1
+
+    # PNG metadata: 既存 foot-shadow sentinel を保持 + shoe-color sentinel 追加
+    from PIL import PngImagePlugin
+    pnginfo = PngImagePlugin.PngInfo()
+    if info.get("tdk-foot-shadow") == "v1":
+        pnginfo.add_text("tdk-foot-shadow", "v1")
+    pnginfo.add_text("tdk-shoe-color", "red-v1")
+    img.save(path, "PNG", pnginfo=pnginfo)
+    return changed, "applied"
+
+
 def _foot_opaque_pct(img: Image.Image) -> float:
     """下端中央 (横 30-70%, 縦 92-100%) の不透明 pixel %"""
     W, H = img.size
@@ -143,6 +196,17 @@ def main() -> int:
         before, after, status = add_foot_shadow(path)
         result = "OK" if after >= 30.0 else "WARN"
         print(f"  [{result}] {name:35s}  {before:5.1f}%  →  {after:5.1f}%  [{status}]")
+
+    # 3. 靴の白を赤 (#e33535) に置換 (冪等、PNG metadata sentinel)
+    print("\n=== Step 3: 靴を赤色化 (下端 30% 内の白 → #e33535、冪等) ===")
+    print(f"{'sprite':40s}  changed_px  status")
+    print("-" * 70)
+    for name in SPRITES_FOR_SHADOW:
+        path = os.path.join(IMG_DIR, name)
+        if not os.path.exists(path):
+            continue
+        changed, status = colorize_shoes_red(path)
+        print(f"  {name:40s}  {changed:8d}  [{status}]")
 
     print("\nDone." + (f" ({len(missing)} missing)" if missing else ""))
     return 1 if missing else 0
