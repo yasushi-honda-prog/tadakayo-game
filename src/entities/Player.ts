@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import RAPIER from "@dimforge/rapier3d-compat";
+import type RAPIER from "@dimforge/rapier3d-compat";
 import { PLAYER } from "../config/gameConfig";
 import type { PhysicsWorld } from "../core/PhysicsWorld";
 import type { InputBus } from "../input/InputBus";
