@@ -623,7 +623,6 @@ export class Game {
     for (const n of [elder, nurse, manager]) {
       this.npcs.push(n);
       this.scene.add(n.object);
-      this.addContactShadow(n.object);
     }
 
     // Phase 5-F: タダレク広場で自動的に踊る NPC を 2 体配置 (ミッション 4 のヒント)
@@ -639,8 +638,10 @@ export class Game {
     for (const d of [dance1, dance2]) {
       this.danceNpcs.push(d);
       this.scene.add(d.object);
-      this.addContactShadow(d.object);
     }
+    // 注意: NPC / DanceNpc には contact shadow を付けない。Player より遠くにいる
+    // NPC の影が、視野角や距離によって「キャラの頭の上に大きく浮いて見える」違和感を
+    // 引き起こすため (ユーザー実機報告 PR #19 後)。Player の足元 shadow のみ維持する。
   }
 
   private refreshMissionUI(): void {
