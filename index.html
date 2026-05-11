@@ -21,7 +21,7 @@
         <div id="title-screen" class="screen visible">
           <img class="title-logo-img" src="./assets/images/title-logo.png" alt="タダカヨ村" />
           <p class="title-subtitle">タダカヨちゃんのDX大冒険 — オープンワールド版</p>
-          <div class="phase-tag">Phase 5-E プロトタイプ（モバイル + 全 5 ミッション）</div>
+          <div class="phase-tag">Phase 5-F プロトタイプ（演出 + スコア画面）</div>
           <button id="start-button" class="primary-button" type="button">スタート</button>
           <button id="mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
           <div class="title-hint">
@@ -37,7 +37,7 @@
         </div>
         <div id="hud" class="hud hidden">
           <div class="hud-row hud-row-top">
-            <div class="hud-pill hud-hint">M でミッション一覧 ・ クリックで視点ロック ・ WASD 移動 / Space ジャンプ</div>
+            <div class="hud-pill hud-hint">Esc / P でポーズ ・ M でミッション一覧 ・ クリックで視点ロック ・ WASD 移動 / Space ジャンプ</div>
           </div>
           <div id="hud-mission" class="hud-mission hidden">
             <span class="hud-mission-label">現在のミッション</span>
@@ -76,6 +76,43 @@
           <button id="btn-jump" class="mobile-btn btn-jump" type="button" aria-label="ジャンプ">↑</button>
           <button id="btn-action" class="mobile-btn btn-action" type="button" aria-label="アクション">E</button>
           <button id="btn-pause" class="mobile-btn btn-pause" type="button" aria-label="ポーズ">⏸</button>
+        </div>
+        <div id="score-screen" class="score-screen hidden">
+          <div class="score-card">
+            <div class="score-confetti" aria-hidden="true">🎉</div>
+            <h2 class="score-title">タダカヨ村マスター</h2>
+            <p class="score-subtitle">全 4 ミッションを達成しました！</p>
+            <div class="score-stars" id="score-stars">★★★★★</div>
+            <div class="score-stats">
+              <div class="score-stat-row">
+                <span class="score-stat-label">クリアタイム</span>
+                <span id="score-time" class="score-stat-value">--:--</span>
+              </div>
+              <div class="score-stat-row">
+                <span class="score-stat-label">DXの種を集めた</span>
+                <span id="score-hearts" class="score-stat-value">0 / 10</span>
+              </div>
+              <div class="score-stat-row">
+                <span class="score-stat-label">現場の声を聞いた</span>
+                <span id="score-talks" class="score-stat-value">0 / 3</span>
+              </div>
+              <div class="score-stat-row">
+                <span class="score-stat-label">広場で踊った</span>
+                <span id="score-dances" class="score-stat-value">0 / 3</span>
+              </div>
+              <div class="score-stat-row">
+                <span class="score-stat-label">塔の頂上に到達</span>
+                <span id="score-tower" class="score-stat-value">—</span>
+              </div>
+            </div>
+            <div class="score-message" id="score-message">
+              介護現場の DX、ここから一緒に始めよう！
+            </div>
+            <div class="score-actions">
+              <button id="score-replay" class="primary-button" type="button">もう一度プレイ</button>
+              <button id="score-close" class="mute-button" type="button">タイトルに戻る</button>
+            </div>
+          </div>
         </div>
         <div id="pause-menu" class="pause-menu hidden">
           <div class="pause-menu-card">

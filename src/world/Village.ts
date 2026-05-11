@@ -55,6 +55,9 @@ const HALF = {
   WORLD_BOUNDARY: 30,
 } as const;
 
+/** 噴水アニメ: 水柱 + 飛沫粒子 (Phase 5-F) */
+const FOUNTAIN_PARTICLES = 18;
+
 export class Village {
   readonly object: THREE.Group;
 
@@ -66,6 +69,13 @@ export class Village {
     hallEntrance: new THREE.Vector3(0, 0, -18),
   };
 
+  // ─── Phase 5-F: 噴水アニメ用 ───
+  private fountainCenter = new THREE.Vector3();
+  private waterColumn: THREE.Mesh | null = null;
+  private waterDroplets: THREE.InstancedMesh | null = null;
+  private dropletState: Array<{ vx: number; vy: number; vz: number; t: number; life: number }> = [];
+  private flagMesh: THREE.Mesh | null = null;
+
   constructor(physics: PhysicsWorld) {
     this.object = new THREE.Group();
     this.buildGround(physics);
@@ -75,6 +85,53 @@ export class Village {
     this.buildTadakomyuHall(physics);
     this.buildDecorations(physics);
     this.buildBoundaryFence(physics);
+  }
+
+  /**
+   * Phase 5-F: 噴水水柱の上下スケール + 飛沫粒子の物理 (重力で落下、寿命で再生成)
+   * + 旗の靡き (z 軸まわりの軽い揺れ)。loop から dt 渡しで毎フレーム呼ばれる前提。
+   */
+  animate(dt: number, elapsed: number): void {
+    // 水柱: y スケールを 0.7-1.3 で sin 振動
+    if (this.waterColumn !== null) {
+      const s = 1.0 + Math.sin(elapsed * 2.4) * 0.3;
+      this.waterColumn.scale.y = s;
+      // 中心は底面固定 (柱の base は y = 1.0、高さは元 1.5 = half 0.75)
+      this.waterColumn.position.y = 1.0 + 0.75 * s;
+    }
+
+    // 飛沫: 投射運動 (p = v0*t + 0.5*g*t^2)、寿命で再スポーン
+    if (this.waterDroplets !== null) {
+      const baseY = 1.6;
+      const g = -3.0; // 弱重力で粒子の弧を見やすく
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < FOUNTAIN_PARTICLES; i++) {
+        const st = this.dropletState[i];
+        st.t += dt;
+        if (st.t >= st.life) {
+          // 再スポーン: 噴水トップから上方+ランダム XZ で噴出
+          const angle = Math.random() * Math.PI * 2;
+          st.vx = Math.cos(angle) * 0.55;
+          st.vz = Math.sin(angle) * 0.55;
+          st.vy = 1.6 + Math.random() * 0.8;
+          st.t = 0;
+          st.life = 1.4 + Math.random() * 0.4;
+        }
+        const px = this.fountainCenter.x + st.vx * st.t;
+        const py = baseY + st.vy * st.t + 0.5 * g * st.t * st.t;
+        const pz = this.fountainCenter.z + st.vz * st.t;
+        dummy.position.set(px, Math.max(py, 0.5), pz);
+        dummy.scale.setScalar(0.08);
+        dummy.updateMatrix();
+        this.waterDroplets.setMatrixAt(i, dummy.matrix);
+      }
+      this.waterDroplets.instanceMatrix.needsUpdate = true;
+    }
+
+    // 旗の揺れ: z 軸回り 0.15rad の sin 振動
+    if (this.flagMesh !== null) {
+      this.flagMesh.rotation.z = Math.sin(elapsed * 1.8) * 0.15;
+    }
   }
 
   // ───────────────────────────────────────────────────────────
@@ -213,6 +270,7 @@ export class Village {
     );
     flag.position.set(topPos.x + 0.45, topPos.y + 1.6, topPos.z);
     this.object.add(flag);
+    this.flagMesh = flag; // Phase 5-F: animate() で揺らす
 
     // landmarks.towerTop を頂上スラブ位置に揃える（ミッション基盤用）
     this.landmarks.towerTop.set(topPos.x, topPos.y, topPos.z);
@@ -275,6 +333,50 @@ export class Village {
     fountainTop.position.set(cx, 0.85, cz);
     this.object.add(fountainTop);
     physics.addStaticCylinder(0.25, 0.55, { x: cx, y: 0.85, z: cz });
+
+    // Phase 5-F: 水柱 (半透明シアンの円柱、animate() で y スケール振動)
+    this.fountainCenter.set(cx, 0, cz);
+    const waterColumn = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.22, 1.5, 12, 1, true),
+      new THREE.MeshStandardMaterial({
+        color: 0x9fd9f0,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0.65,
+        emissive: 0x4090b0,
+        emissiveIntensity: 0.4,
+        side: THREE.DoubleSide,
+      })
+    );
+    waterColumn.position.set(cx, 1.75, cz); // 中心 y = 1.75 = base 1.0 + half 0.75
+    this.object.add(waterColumn);
+    this.waterColumn = waterColumn;
+
+    // Phase 5-F: 飛沫粒子 (InstancedMesh で軽量)
+    const droplets = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1.0, 8, 6),
+      new THREE.MeshStandardMaterial({
+        color: 0xb6e8f5,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0.85,
+        emissive: 0x4090b0,
+        emissiveIntensity: 0.3,
+      }),
+      FOUNTAIN_PARTICLES
+    );
+    for (let i = 0; i < FOUNTAIN_PARTICLES; i++) {
+      this.dropletState.push({
+        vx: 0,
+        vy: 0,
+        vz: 0,
+        // 初期 t を散らして粒子を一斉スポーンさせない (見た目の自然さ)
+        t: Math.random() * 1.4,
+        life: 1.4 + Math.random() * 0.4,
+      });
+    }
+    this.object.add(droplets);
+    this.waterDroplets = droplets;
 
     // ベンチ 2 個（噴水の南北）
     this.addBench(physics, cx - 2.6, cz);
