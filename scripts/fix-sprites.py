@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """
-スプライト整合化 + 靴シャドウ強制 + 靴赤色化 (Phase 5-E / Phase 5-F)
+スプライト整合化 + 靴シャドウ強制 (Phase 5-E / Phase 5-F / Phase 6 sprite refresh)
 
 問題:
 1. tadakayo-side-idle.png / tadakayo-side-run.png が「右向き」になっておらず、
    実際は左向き or 正面気味の絵が混じっていた → 右移動時に違和感
 2. 全 sprite で run/jump 系の靴透明 (下端中央 opaque 0-12%) → 走ったり跳んだりすると靴が消える
-3. 白いスニーカーが背景の白チェッカー柄と区別がつかず、透過処理で部分消失
 
 対処:
 1. 全 side-{pose}.png を side-left-{pose}.png の水平反転で再生成 (左右一貫性確保)
 2. 全 14 sprite (front/back/sideLeft/sideRight × idle/run/jump/crouch) の下端中央に
-   黒い楕円フットシャドウを強制描画 → 靴がなくても「足元に影」として自然に見える
-3. 下端 30% 領域内の白いピクセルをブランド赤 (#e33535) に置換 → 透過リスクを根絶
-   + ブランドカラーとの整合 (短パン領域は下端 30% 外なので影響なし)
+   黒い楕円フットシャドウを強制描画 → 接地点を明示
+
+履歴メモ:
+- 旧 step 3 「白い靴を赤に置換 (colorize_shoes_red)」は nano-banana 側で「赤靴 +
+  黒アウトライン」を直接生成する方針に切り替えたため除去 (Phase 6 sprite refresh)。
+  関数本体は backward compat 用に残してあるが main() からは呼ばれない。
+  ※ 旧実装は除去対象だった「白いハロー (アルファ境界の連結成分)」を誤検出し、
+    脚周辺に細い赤縁が残る既知の妥協点があった。nano-banana 直接生成で解消。
 
 使用法:
     python3 scripts/fix-sprites.py
@@ -248,16 +252,8 @@ def main() -> int:
         result = "OK" if after >= 30.0 else "WARN"
         print(f"  [{result}] {name:35s}  {before:5.1f}%  →  {after:5.1f}%  [{status}]")
 
-    # 3. 靴の白を赤 (#e33535) に置換 (冪等、PNG metadata sentinel)
-    print("\n=== Step 3: 靴を赤色化 (下端 30% 内の白 → #e33535、冪等) ===")
-    print(f"{'sprite':40s}  changed_px  status")
-    print("-" * 70)
-    for name in SPRITES_FOR_SHADOW:
-        path = os.path.join(IMG_DIR, name)
-        if not os.path.exists(path):
-            continue
-        changed, status = colorize_shoes_red(path)
-        print(f"  {name:40s}  {changed:8d}  [{status}]")
+    # Step 3 (旧 colorize_shoes_red) は nano-banana 直接生成に置き換え、main() から除去。
+    # 関数定義は backward compat 用に残存。
 
     print("\nDone." + (f" ({len(missing)} missing)" if missing else ""))
     return 1 if missing else 0

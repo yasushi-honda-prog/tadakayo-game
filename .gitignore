@@ -17,3 +17,9 @@ prod*.png
 
 # direnv local cache
 .direnv/
+
+# nano-banana 生成 raw 画像 (public/assets/images/ にコピー後の中間生成物)
+generated-images/
+
+# Serena MCP scratch
+.serena/
