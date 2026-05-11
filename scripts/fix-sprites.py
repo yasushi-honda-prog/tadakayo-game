@@ -55,13 +55,27 @@ SPRITES_FOR_SHADOW = [
 
 
 def flip_horizontal(src_path: str, dst_path: str) -> None:
-    """src を水平反転して dst に保存"""
+    """src を水平反転して dst に保存。
+
+    **重要**: source 側の sentinel metadata (tdk-foot-shadow / tdk-shoe-color) を
+    引き継いで保存する。これがないと反転後の dst は metadata 喪失状態になり、
+    後続 Step 2/3 が「未適用」と誤判定して二重に shadow / 赤塗りを重ねる。
+    (codex review PR #17 Medium 修正)
+    """
     if not os.path.exists(src_path):
         print(f"  [SKIP] source not found: {src_path}")
         return
-    img = Image.open(src_path).convert("RGBA")
-    flipped = img.transpose(Image.FLIP_LEFT_RIGHT)
-    flipped.save(dst_path, "PNG")
+    src = Image.open(src_path)
+    info = src.info or {}
+    flipped = src.convert("RGBA").transpose(Image.FLIP_LEFT_RIGHT)
+
+    from PIL import PngImagePlugin
+    pnginfo = PngImagePlugin.PngInfo()
+    for key in ("tdk-foot-shadow", "tdk-shoe-color"):
+        val = info.get(key)
+        if val:
+            pnginfo.add_text(key, val)
+    flipped.save(dst_path, "PNG", pnginfo=pnginfo)
     print(f"  [FLIP] {os.path.basename(src_path)} → {os.path.basename(dst_path)}")
 
 
