@@ -27,6 +27,8 @@ export class Collectible {
   private readonly baseY: number;
   private readonly material: THREE.MeshStandardMaterial;
   private readonly geometries: THREE.BufferGeometry[] = [];
+  private readonly shadowMaterial: THREE.MeshBasicMaterial;
+  private readonly shadowGeometry: THREE.CircleGeometry;
   private elapsed = 0;
   private onPickup: (() => void) | null = null;
 
@@ -48,6 +50,22 @@ export class Collectible {
     this.object = new THREE.Group();
     this.object.position.set(this.position.x, 0, this.position.z);
     this.object.add(this.mesh);
+
+    // 地面影: ハートが空中浮遊しているとき XZ 位置を視認しやすくする (Phase 5-F UX 改善)。
+    // Heart sprite と異なり静的位置 (y=0.02 固定) で、浮遊高さによる scale 変動なし
+    // (シンプルさ優先、ユーザーが「真下のここ」と分かれば十分)。
+    this.shadowGeometry = new THREE.CircleGeometry(0.22, 20);
+    this.shadowMaterial = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false,
+    });
+    const shadow = new THREE.Mesh(this.shadowGeometry, this.shadowMaterial);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(0, 0.02, 0);
+    shadow.renderOrder = -1; // 地面と Z-fight しないよう先描画
+    this.object.add(shadow);
   }
 
   private buildHeartMesh(): THREE.Group {
@@ -110,5 +128,7 @@ export class Collectible {
   dispose(): void {
     for (const g of this.geometries) g.dispose();
     this.material.dispose();
+    this.shadowGeometry.dispose();
+    this.shadowMaterial.dispose();
   }
 }
