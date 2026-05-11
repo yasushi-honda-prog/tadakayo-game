@@ -61,6 +61,8 @@ export class Game {
   private readonly actionHintTargetEl: HTMLElement;
 
   private accumulator = 0;
+  /** Player の dance state エッジ検出用 (false→true で danceBgm 開始, true→false で停止) */
+  private playerWasDancing = false;
   private lastTime = 0;
   private rafId: number | null = null;
   private disposed = false;
@@ -319,7 +321,8 @@ export class Game {
    * E キー (action) 押下時のディスパッチ:
    * - DialogBox が開いていれば advance() して次の line へ
    * - 閉じていて最寄りの interactable NPC があれば会話開始
-   * - それ以外で DanceMission の中心半径内なら踊りカウント加算 (Phase 5-E)
+   * - それ以外でタダレク広場内なら Player を踊らせる (DanceMission クリア後も何度でも)
+   *   ミッション未クリア時は notifyAction でカウントも加算
    * - pauseMenu open 中は無視
    */
   private handleActionPress(): void {
@@ -335,17 +338,21 @@ export class Game {
       this.startNpcTalk(npc);
       return;
     }
-    // DanceMission: 場所内ならアクションをカウント
-    if (this.danceMission !== null && !this.danceMission.cleared) {
+    // タダレク広場内なら Player をダンス発火 (クリア後も繰り返し可)
+    if (this.danceMission !== null) {
       const playerSnap = {
         x: this.player.position.x,
         y: this.player.position.y,
         z: this.player.position.z,
       };
-      const advanced = this.danceMission.notifyAction(playerSnap);
-      if (advanced) {
-        this.audio.pickupSE();
-        this.refreshMissionUI();
+      if (this.danceMission.isInArea(playerSnap)) {
+        this.player.startDance();
+        // 未クリア時のみカウント加算 (notifyAction は cleared 後 false を返す既存仕様)
+        const advanced = this.danceMission.notifyAction(playerSnap);
+        if (advanced) {
+          this.audio.pickupSE();
+          this.refreshMissionUI();
+        }
       }
     }
   }
@@ -419,6 +426,14 @@ export class Game {
         this.player.update(PHYSICS.FIXED_DT, this.camera);
         this.physics.step();
         this.accumulator -= PHYSICS.FIXED_DT;
+      }
+
+      // dance state の edge 検出 → ダンス BGM の開始/停止 (village BGM ducking 含む)
+      const dancingNow = this.player.isDancing();
+      if (dancingNow !== this.playerWasDancing) {
+        if (dancingNow) this.audio.startDanceBgm();
+        else this.audio.stopDanceBgm();
+        this.playerWasDancing = dancingNow;
       }
 
       this.camera.follow(this.player.position);

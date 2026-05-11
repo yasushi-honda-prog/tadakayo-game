@@ -8,7 +8,8 @@ import { STORAGE_KEYS } from "../config/gameConfig";
  *
  * 素材クレジット:
  * - SE: Kenney Interface Sounds (CC0, kenney.nl)
- * - BGM: Kenney Music Jingles - Pizzicato (CC0, kenney.nl)
+ * - BGM (village): Kenney Music Jingles - Pizzicato (CC0, kenney.nl)
+ * - BGM (dance): "Karma" by Michael Ramir C. (Mixkit License, mixkit.co - 商用利用可)
  *
  * iOS Safari は初回ユーザー操作後に AudioContext を resume する必要がある。
  */
@@ -24,18 +25,24 @@ const SOUND_FILES: Record<SoundKey, string> = {
 };
 
 const BGM_FILE = "bgm-village.ogg";
+const DANCE_BGM_FILE = "bgm-dance.mp3";
 
 const SE_GAIN = 0.55;
-const BGM_GAIN = 0.22; // BGM は控えめ (SE 聞こえやすく)
+const BGM_GAIN = 0.22; // 村 BGM は控えめ (SE 聞こえやすく)
+const DANCE_BGM_GAIN = 0.35; // ダンス中の主役 BGM、村より少し大きく
+const VILLAGE_DUCK_GAIN = 0.04; // ダンス中は村 BGM をほぼ消す (ducking)
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private bgmGain: GainNode | null = null;
+  private danceBgmGain: GainNode | null = null;
   private muted = false;
   private buffers: Partial<Record<SoundKey, AudioBuffer>> = {};
   private bgmBuffer: AudioBuffer | null = null;
   private bgmSource: AudioBufferSourceNode | null = null;
+  private danceBgmBuffer: AudioBuffer | null = null;
+  private danceBgmSource: AudioBufferSourceNode | null = null;
   /** startBgm() が bgmBuffer 未 decode で空振りした時、preloadAll 完了後に自動再生するためのフラグ */
   private bgmPendingStart = false;
 
@@ -61,6 +68,11 @@ export class AudioManager {
     this.bgmGain = this.ctx.createGain();
     this.bgmGain.gain.value = BGM_GAIN;
     this.bgmGain.connect(this.masterGain);
+
+    // ダンス BGM 専用ゲイン (ducking の対象外、独立に再生制御)
+    this.danceBgmGain = this.ctx.createGain();
+    this.danceBgmGain.gain.value = DANCE_BGM_GAIN;
+    this.danceBgmGain.connect(this.masterGain);
 
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
@@ -89,6 +101,9 @@ export class AudioManager {
     }
     tasks.push(this.loadBuffer(`${base}assets/audio/${BGM_FILE}`).then((buf) => {
       this.bgmBuffer = buf;
+    }));
+    tasks.push(this.loadBuffer(`${base}assets/audio/${DANCE_BGM_FILE}`).then((buf) => {
+      this.danceBgmBuffer = buf;
     }));
     await Promise.all(tasks);
     // BGM の startBgm() が decode 未完で空振りしていた場合、ここで遅延再生
@@ -185,8 +200,48 @@ export class AudioManager {
     }
   }
 
+  /**
+   * ダンス BGM 開始 (ループ再生)。同時に村 BGM を ducking (gain を下げる)。
+   * 既に再生中なら一度停止して頭から再開する (Player の連打リスタートに合わせる)。
+   */
+  startDanceBgm(): void {
+    if (!this.ctx || !this.danceBgmGain || !this.danceBgmBuffer) return;
+    // 連打リスタート: 既存 source を止めてから新しく作る
+    if (this.danceBgmSource) {
+      try { this.danceBgmSource.stop(0); } catch { /* already stopped */ }
+      this.danceBgmSource.disconnect();
+      this.danceBgmSource = null;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.danceBgmBuffer;
+    src.loop = true;
+    src.connect(this.danceBgmGain);
+    src.start(0);
+    this.danceBgmSource = src;
+
+    // ducking: 村 BGM をほぼ消す
+    if (this.bgmGain) {
+      this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.bgmGain.gain.setTargetAtTime(VILLAGE_DUCK_GAIN, this.ctx.currentTime, 0.1);
+    }
+  }
+
+  stopDanceBgm(): void {
+    if (this.danceBgmSource) {
+      try { this.danceBgmSource.stop(0); } catch { /* already stopped */ }
+      this.danceBgmSource.disconnect();
+      this.danceBgmSource = null;
+    }
+    // 村 BGM を元の音量に復帰
+    if (this.ctx && this.bgmGain) {
+      this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.bgmGain.gain.setTargetAtTime(BGM_GAIN, this.ctx.currentTime, 0.2);
+    }
+  }
+
   dispose(): void {
     this.stopBgm();
+    this.stopDanceBgm();
     if (this.ctx) {
       this.ctx.close().catch(() => {});
       this.ctx = null;

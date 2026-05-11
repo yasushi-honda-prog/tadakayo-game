@@ -105,6 +105,7 @@ NPO法人タダカヨ ブランドガイドラインに準拠:
 - ビルド: [Vite](https://vitejs.dev/) (MIT)
 - 効果音: [Kenney Interface Sounds](https://kenney.nl/assets/interface-sounds) (CC0)
 - BGM (タダカヨ村テーマ) / ミッションクリア jingle: [Kenney Music Jingles](https://kenney.nl/assets/music-jingles) (CC0)
+- BGM (ダンス時): "Karma" by Michael Ramir C. from [Mixkit](https://mixkit.co/free-stock-music/tag/dance/) (Mixkit License - 商用利用可)
 - キャラクター/NPC スプライト: nano-banana (Vertex AI Gemini 3.1 Flash Image) で本プロジェクト用に生成
 
 ## ライセンス
