@@ -7,15 +7,22 @@ import { Collectible } from "../entities/Collectible";
 import { NPC } from "../entities/NPC";
 import { InputBus } from "../input/InputBus";
 import { KeyboardMouseInput } from "../input/KeyboardMouseInput";
+import { TouchInput } from "../input/TouchInput";
+import { detectInputMode } from "../input/detectInput";
 import { AudioManager } from "../audio/AudioManager";
 import { TitleScreen } from "../ui/TitleScreen";
 import { HUD } from "../ui/HUD";
 import { MissionPanel } from "../ui/MissionPanel";
 import { DialogBox } from "../ui/DialogBox";
+import { MobileControls } from "../ui/MobileControls";
+import { PauseMenu } from "../ui/PauseMenu";
 import { MissionManager } from "../missions/MissionManager";
+import { Mission } from "../missions/Mission";
 import { CollectMission } from "../missions/missions/CollectMission";
 import { ReachMission } from "../missions/missions/ReachMission";
 import { TalkMission } from "../missions/missions/TalkMission";
+import { DanceMission } from "../missions/missions/DanceMission";
+import { MetaMission } from "../missions/missions/MetaMission";
 import { BRAND_HEX } from "../config/brand";
 import { PHYSICS } from "../config/gameConfig";
 
@@ -32,15 +39,21 @@ export class Game {
   private readonly village: Village;
   private readonly bus: InputBus;
   private readonly kbInput: KeyboardMouseInput;
+  private touchInput: TouchInput | null = null;
+  private mobileControls: MobileControls | null = null;
+  private readonly inputMode: "desktop" | "mobile";
   private readonly audio: AudioManager;
   private readonly titleScreen: TitleScreen;
   private readonly hud: HUD;
   private readonly missionPanel: MissionPanel;
   private readonly dialogBox: DialogBox;
+  private readonly pauseMenu: PauseMenu;
   private readonly missions: MissionManager;
-  private readonly collectibles: Collectible[] = [];
-  private readonly npcs: NPC[] = [];
+  private collectibles: Collectible[] = [];
+  private npcs: NPC[] = [];
   private talkMission: TalkMission | null = null;
+  private danceMission: DanceMission | null = null;
+  private metaMission: MetaMission | null = null;
   private nearestInteractableNpc: NPC | null = null;
   private readonly actionHintEl: HTMLElement;
   private readonly actionHintTargetEl: HTMLElement;
@@ -85,18 +98,35 @@ export class Game {
     this.camera = new ThirdPersonCamera(this.bus);
     this.camera.setInitial(this.player.position);
 
-    // 入力
+    // 入力 (KB は常設、Touch は mobile 検出時のみ追加。両方共存可能)
     this.kbInput = new KeyboardMouseInput(canvas, this.bus);
+    this.inputMode = detectInputMode();
+    if (this.inputMode === "mobile") {
+      this.mobileControls = new MobileControls();
+      this.touchInput = new TouchInput(canvas, this.bus, this.mobileControls);
+    }
 
     // UI
     this.titleScreen = new TitleScreen({
       onStart: () => void this.startPlay(),
-      onMuteToggle: (m) => this.audio.setMuted(m),
+      onMuteToggle: (m) => {
+        this.audio.setMuted(m);
+        // PauseMenu のラベル状態を同期 (タイトル画面の mute toggle ↔ ポーズメニューの mute toggle 連動)
+        this.pauseMenu?.syncMuted(m);
+      },
       initialMuted: this.audio.isMuted(),
     });
     this.hud = new HUD();
     this.missionPanel = new MissionPanel();
     this.dialogBox = new DialogBox();
+    this.pauseMenu = new PauseMenu({
+      initialMuted: this.audio.isMuted(),
+      onResume: () => {
+        if (this.inputMode === "mobile") this.mobileControls?.show();
+      },
+      onMuteToggle: (muted) => this.audio.setMuted(muted),
+      onReset: () => this.resetToTitle(),
+    });
 
     const hint = document.getElementById("hud-action-hint");
     const hintTarget = document.getElementById("hud-action-target");
@@ -107,39 +137,116 @@ export class Game {
     // ミッション基盤
     this.missions = new MissionManager();
     this.setupMissions();
+    this.bindMissionListeners();
 
     this.bus.on((event) => {
       if (event === "panel") {
+        if (!this.playing || this.pauseMenu.isVisible()) return;
         this.missionPanel.toggle();
         if (this.missionPanel.isOpen()) this.missionPanel.render(this.missions.all);
       } else if (event === "action") {
         this.handleActionPress();
+      } else if (event === "pause") {
+        this.handlePausePress();
       }
-    });
-    this.missions.onChange(() => this.refreshMissionUI());
-    this.missions.onCleared((m) => {
-      this.audio.missionClearSE();
-      this.hud.flashClear(`クリア！ ${m.title}`);
     });
 
     this.titleScreen.show();
   }
 
   /**
+   * MissionManager.dispose() は listeners 配列を空にするため、
+   * 初回 + resetToTitle 後の再構築の両方で listener を hook する必要がある。
+   * (PR #15 Codex/Evaluator 双方が High バグとして指摘した「2 周目以降 HUD 更新 / SE が止まる」修正)
+   */
+  private bindMissionListeners(): void {
+    this.missions.onChange(() => this.refreshMissionUI());
+    this.missions.onCleared((m) => this.handleMissionCleared(m));
+  }
+
+  /**
+   * mission cleared 時のハンドラ:
+   * - Hit jingle 再生 + HUD で toast
+   * - MetaMission に通知 (id 一致なら自身も cleared 判定)
+   * - MetaMission 自身が cleared した場合は「タダカヨ村マスター」エンディング演出
+   */
+  private handleMissionCleared(m: Mission): void {
+    this.audio.missionClearSE();
+    if (m instanceof MetaMission) {
+      // メタミッション cleared = エンディング (より目立つ toast + 長めの表示)
+      this.hud.flashClear(`🎉 ${m.title} 達成！`, 5000);
+    } else {
+      this.hud.flashClear(`クリア！ ${m.title}`);
+    }
+    if (this.metaMission !== null && !(m instanceof MetaMission)) {
+      this.metaMission.notifyMissionCleared(m.id);
+    }
+  }
+
+  /**
+   * Esc / P / pause ボタン押下時:
+   * - playing 中だけ反応 (タイトル画面では無視)
+   * - dialog/missionPanel が開いていれば閉じる優先
+   * - それ以外で pauseMenu をトグル
+   * - mobile では pauseMenu open 中は仮想コントローラを隠す
+   */
+  private handlePausePress(): void {
+    if (!this.playing) return;
+    if (this.dialogBox.isVisible()) {
+      this.dialogBox.forceClose();
+      return;
+    }
+    if (this.missionPanel.isOpen()) {
+      this.missionPanel.toggle();
+      return;
+    }
+    if (this.pauseMenu.isVisible()) {
+      this.pauseMenu.toggle();
+      if (this.inputMode === "mobile") this.mobileControls?.show();
+    } else {
+      // open 時に最新の mute 状態をラベルへ反映 (TitleScreen からの mute 変更を取り込む)
+      this.pauseMenu.syncMuted(this.audio.isMuted());
+      this.pauseMenu.open();
+      if (this.inputMode === "mobile") {
+        this.mobileControls?.hide();
+        this.touchInput?.reset();
+      }
+    }
+  }
+
+  /**
    * E キー (action) 押下時のディスパッチ:
    * - DialogBox が開いていれば advance() して次の line へ
    * - 閉じていて最寄りの interactable NPC があれば会話開始
-   * - それ以外は何もしない
+   * - それ以外で DanceMission の中心半径内なら踊りカウント加算 (Phase 5-E)
+   * - pauseMenu open 中は無視
    */
   private handleActionPress(): void {
     if (!this.playing) return;
+    if (this.pauseMenu.isVisible()) return;
     if (this.dialogBox.isVisible()) {
       this.audio.dialogSE();
       this.dialogBox.advance();
       return;
     }
     const npc = this.nearestInteractableNpc;
-    if (npc !== null) this.startNpcTalk(npc);
+    if (npc !== null) {
+      this.startNpcTalk(npc);
+      return;
+    }
+    // DanceMission: 場所内ならアクションをカウント
+    if (this.danceMission !== null && !this.danceMission.cleared) {
+      const playerSnap = {
+        x: this.player.position.x,
+        y: this.player.position.y,
+        z: this.player.position.z,
+      };
+      const advanced = this.danceMission.notifyAction(playerSnap);
+      if (advanced) {
+        this.audio.pickupSE();
+        this.refreshMissionUI();
+      }
+    }
   }
 
   private startNpcTalk(npc: NPC): void {
@@ -200,7 +307,7 @@ export class Game {
     this.lastTime = now;
     if (dt > 0.1) dt = 0.1;
 
-    if (this.playing) {
+    if (this.playing && !this.pauseMenu.isVisible()) {
       // 視点回転を取り込んでカメラ更新の前に
       this.camera.applyLookDelta();
 
@@ -288,9 +395,39 @@ export class Game {
     });
     this.talkMission = talkMission;
 
+    // Phase 5-E: DanceMission (タダレク広場で 3 回アクション)
+    const rekuCenter = this.village.landmarks.rekuCenter;
+    const danceMission = new DanceMission({
+      id: "dance-tadareku",
+      title: "タダレク広場で踊ろう",
+      description:
+        "タダレク広場（村の東側、噴水のあるエリア）の中央に立って、E キー (アクション) を 3 回押してみましょう。レクリエーションは介護現場の元気の源です。",
+      center: { x: rekuCenter.x, y: rekuCenter.y, z: rekuCenter.z },
+      radius: 4.0,
+      requiredCount: 3,
+    });
+    this.danceMission = danceMission;
+
+    // Phase 5-E: MetaMission (4 ミッション全クリアでエンディング)
+    const metaMission = new MetaMission({
+      id: "tadakayo-master",
+      title: "タダカヨ村マスター",
+      description:
+        "上の 4 つのミッションをすべて達成すると「タダカヨ村マスター」の称号が手に入ります。介護 DX の世界を完走しよう！",
+      requiredMissionIds: [
+        "collect-dx-seeds",
+        "reach-tower-top",
+        "talk-three-voices",
+        "dance-tadareku",
+      ],
+    });
+    this.metaMission = metaMission;
+
     this.missions.start(collectMission);
     this.missions.start(reachMission);
     this.missions.start(talkMission);
+    this.missions.start(danceMission);
+    this.missions.start(metaMission);
   }
 
   /**
@@ -365,7 +502,61 @@ export class Game {
     this.titleScreen.hide();
     this.hud.show();
     this.refreshMissionUI();
+    if (this.inputMode === "mobile") this.mobileControls?.show();
     this.playing = true;
+  }
+
+  /**
+   * タイトル画面に戻る (Phase 5-E ポーズメニュー「タイトルに戻る」から呼ばれる)。
+   *
+   * 既存 mission/collectible/npc を完全 dispose して setupMissions() で再構築する方針。
+   * これにより:
+   * - 「2 周目に取得済みハートが透明のまま」「会話済み NPC が talked のまま」等の状態残留を確実に防ぐ
+   * - 1 回 reset すると collectible 10 + npc 3 + mission 5 が再生成される (~30KB のテクスチャ再 load
+   *   は THREE.TextureLoader のキャッシュで実質ゼロ負荷)
+   *
+   * **責務注意**: pauseMenu.close は呼び出し側 (PauseMenu の handleReset) で実行済み。
+   * このメソッドは「ゲーム状態のリセット」だけを行う。
+   */
+  private resetToTitle(): void {
+    this.playing = false;
+    this.audio.stopBgm();
+    this.dialogBox.forceClose();
+    this.hideActionHint();
+    this.nearestInteractableNpc = null;
+    if (this.missionPanel.isOpen()) this.missionPanel.toggle();
+    if (this.inputMode === "mobile") {
+      this.mobileControls?.hide();
+      this.touchInput?.reset();
+    }
+
+    // entity / mission のクリーンアップ
+    for (const c of this.collectibles) {
+      this.scene.remove(c.object);
+      c.dispose();
+    }
+    this.collectibles = [];
+    for (const n of this.npcs) {
+      this.scene.remove(n.object);
+      n.dispose();
+    }
+    this.npcs = [];
+    this.missions.dispose();
+    this.talkMission = null;
+    this.danceMission = null;
+    this.metaMission = null;
+
+    // 再構築 + プレイヤー位置リセット + カメラ初期化 (yaw/pitch を constructor 時の状態に戻す)
+    this.setupMissions();
+    this.bindMissionListeners(); // missions.dispose() で消えた listener を再 hook
+    this.player.resetPosition();
+    this.camera.setInitial(this.player.position);
+    this.refreshMissionUI();
+    this.pauseMenu.syncMuted(this.audio.isMuted());
+
+    // UI: HUD 非表示 + タイトル表示
+    this.hud.hide();
+    this.titleScreen.show();
   }
 
   private handleResize = (): void => {
@@ -379,6 +570,9 @@ export class Game {
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     window.removeEventListener("resize", this.handleResize);
     this.kbInput.dispose();
+    this.touchInput?.dispose();
+    this.pauseMenu.dispose();
+    this.mobileControls?.hide();
     this.player.dispose();
     this.camera.dispose();
     this.village.dispose();

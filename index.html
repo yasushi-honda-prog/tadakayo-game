@@ -21,14 +21,18 @@
         <div id="title-screen" class="screen visible">
           <img class="title-logo-img" src="./assets/images/title-logo.png" alt="タダカヨ村" />
           <p class="title-subtitle">タダカヨちゃんのDX大冒険 — オープンワールド版</p>
-          <div class="phase-tag">Phase 5-D プロトタイプ（NPC + 会話）</div>
+          <div class="phase-tag">Phase 5-E プロトタイプ（モバイル + 全 5 ミッション）</div>
           <button id="start-button" class="primary-button" type="button">スタート</button>
           <button id="mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
           <div class="title-hint">
             <strong>PC 操作:</strong><br />
             WASD / 矢印 で移動 ・ Space でジャンプ ・ <strong>E で NPC と会話</strong><br />
             <strong>マウスクリックで視点ロック</strong>、マウス移動で視点回転 ・ Shift で走る<br />
-            M でミッション一覧 ・ Esc で視点ロック解除
+            M でミッション一覧 ・ Esc で視点ロック解除 / ポーズ
+            <br /><br />
+            <strong>モバイル操作:</strong><br />
+            左半分タップで仮想スティック移動 ・ 右半分スワイプで視点回転<br />
+            右下ボタンでジャンプ / E（会話・踊り）・ 右上 ⏸ でポーズ
           </div>
         </div>
         <div id="hud" class="hud hidden">
@@ -64,6 +68,28 @@
             </div>
             <div id="mission-panel-list" class="mission-panel-list"></div>
             <div class="mission-panel-hint">M キーで閉じる</div>
+          </div>
+        </div>
+        <div id="mobile-controls" class="mobile-controls hidden" aria-hidden="true">
+          <div id="virtual-stick" class="virtual-stick">
+            <div class="stick-knob"></div>
+          </div>
+          <button id="btn-jump" class="mobile-btn btn-jump" type="button" aria-label="ジャンプ">↑</button>
+          <button id="btn-action" class="mobile-btn btn-action" type="button" aria-label="アクション">E</button>
+          <button id="btn-pause" class="mobile-btn btn-pause" type="button" aria-label="ポーズ">⏸</button>
+        </div>
+        <div id="pause-menu" class="pause-menu hidden">
+          <div class="pause-menu-card">
+            <h2>ポーズ</h2>
+            <button id="pause-resume" class="primary-button" type="button">再開</button>
+            <button id="pause-mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
+            <button id="pause-controls-toggle" class="mute-button" type="button">操作説明 ▾</button>
+            <div id="pause-controls-detail" class="pause-controls-detail hidden">
+              <strong>PC:</strong> WASD 移動 ・ Space ジャンプ ・ E アクション / 会話 ・ M ミッション一覧 ・ Esc / P でポーズ<br />
+              <strong>モバイル:</strong> 左半分仮想スティック ・ 右スワイプ視点 ・ 右下ジャンプ / E ・ 右上 ⏸ ポーズ
+            </div>
+            <button id="pause-reset" class="mute-button danger" type="button">タイトルに戻る</button>
+            <p class="pause-menu-hint">Esc / P でも閉じられます</p>
           </div>
         </div>
       </div>
