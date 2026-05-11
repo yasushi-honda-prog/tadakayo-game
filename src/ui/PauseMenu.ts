@@ -31,9 +31,15 @@ export class PauseMenu {
 
   private opened = false;
   private muted: boolean;
+  private disposed = false;
   private readonly onResume: () => void;
   private readonly onMuteToggleCb: (muted: boolean) => void;
   private readonly onReset: () => void;
+
+  private readonly resumeHandler = () => this.handleResume();
+  private readonly muteHandler = () => this.handleMuteToggle();
+  private readonly controlsHandler = () => this.handleControlsToggle();
+  private readonly resetHandler = () => this.handleReset();
 
   constructor(opts: PauseMenuOptions) {
     const root = document.getElementById("pause-menu");
@@ -60,10 +66,21 @@ export class PauseMenu {
   }
 
   private bind(): void {
-    this.resumeBtn.addEventListener("click", () => this.handleResume());
-    this.muteBtn.addEventListener("click", () => this.handleMuteToggle());
-    this.controlsToggleBtn.addEventListener("click", () => this.handleControlsToggle());
-    this.resetBtn.addEventListener("click", () => this.handleReset());
+    // bound handler 化で dispose / 重複登録防止 (PR #15 review fix)
+    this.resumeBtn.addEventListener("click", this.resumeHandler);
+    this.muteBtn.addEventListener("click", this.muteHandler);
+    this.controlsToggleBtn.addEventListener("click", this.controlsHandler);
+    this.resetBtn.addEventListener("click", this.resetHandler);
+  }
+
+  /** HMR / Game.dispose 後の再生成で listener が重複しないよう必ず呼ぶ */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.resumeBtn.removeEventListener("click", this.resumeHandler);
+    this.muteBtn.removeEventListener("click", this.muteHandler);
+    this.controlsToggleBtn.removeEventListener("click", this.controlsHandler);
+    this.resetBtn.removeEventListener("click", this.resetHandler);
   }
 
   open(): void {

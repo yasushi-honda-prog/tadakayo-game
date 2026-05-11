@@ -109,7 +109,11 @@ export class Game {
     // UI
     this.titleScreen = new TitleScreen({
       onStart: () => void this.startPlay(),
-      onMuteToggle: (m) => this.audio.setMuted(m),
+      onMuteToggle: (m) => {
+        this.audio.setMuted(m);
+        // PauseMenu のラベル状態を同期 (タイトル画面の mute toggle ↔ ポーズメニューの mute toggle 連動)
+        this.pauseMenu?.syncMuted(m);
+      },
       initialMuted: this.audio.isMuted(),
     });
     this.hud = new HUD();
@@ -133,6 +137,7 @@ export class Game {
     // ミッション基盤
     this.missions = new MissionManager();
     this.setupMissions();
+    this.bindMissionListeners();
 
     this.bus.on((event) => {
       if (event === "panel") {
@@ -145,10 +150,18 @@ export class Game {
         this.handlePausePress();
       }
     });
-    this.missions.onChange(() => this.refreshMissionUI());
-    this.missions.onCleared((m) => this.handleMissionCleared(m));
 
     this.titleScreen.show();
+  }
+
+  /**
+   * MissionManager.dispose() は listeners 配列を空にするため、
+   * 初回 + resetToTitle 後の再構築の両方で listener を hook する必要がある。
+   * (PR #15 Codex/Evaluator 双方が High バグとして指摘した「2 周目以降 HUD 更新 / SE が止まる」修正)
+   */
+  private bindMissionListeners(): void {
+    this.missions.onChange(() => this.refreshMissionUI());
+    this.missions.onCleared((m) => this.handleMissionCleared(m));
   }
 
   /**
@@ -191,8 +204,13 @@ export class Game {
       this.pauseMenu.toggle();
       if (this.inputMode === "mobile") this.mobileControls?.show();
     } else {
+      // open 時に最新の mute 状態をラベルへ反映 (TitleScreen からの mute 変更を取り込む)
+      this.pauseMenu.syncMuted(this.audio.isMuted());
       this.pauseMenu.open();
-      if (this.inputMode === "mobile") this.mobileControls?.hide();
+      if (this.inputMode === "mobile") {
+        this.mobileControls?.hide();
+        this.touchInput?.reset();
+      }
     }
   }
 
@@ -507,7 +525,10 @@ export class Game {
     this.hideActionHint();
     this.nearestInteractableNpc = null;
     if (this.missionPanel.isOpen()) this.missionPanel.toggle();
-    if (this.inputMode === "mobile") this.mobileControls?.hide();
+    if (this.inputMode === "mobile") {
+      this.mobileControls?.hide();
+      this.touchInput?.reset();
+    }
 
     // entity / mission のクリーンアップ
     for (const c of this.collectibles) {
@@ -525,10 +546,13 @@ export class Game {
     this.danceMission = null;
     this.metaMission = null;
 
-    // 再構築 + プレイヤー位置リセット
+    // 再構築 + プレイヤー位置リセット + カメラ初期化 (yaw/pitch を constructor 時の状態に戻す)
     this.setupMissions();
+    this.bindMissionListeners(); // missions.dispose() で消えた listener を再 hook
     this.player.resetPosition();
+    this.camera.setInitial(this.player.position);
     this.refreshMissionUI();
+    this.pauseMenu.syncMuted(this.audio.isMuted());
 
     // UI: HUD 非表示 + タイトル表示
     this.hud.hide();
@@ -547,6 +571,7 @@ export class Game {
     window.removeEventListener("resize", this.handleResize);
     this.kbInput.dispose();
     this.touchInput?.dispose();
+    this.pauseMenu.dispose();
     this.mobileControls?.hide();
     this.player.dispose();
     this.camera.dispose();

@@ -36,6 +36,8 @@ export class KeyboardMouseInput {
     document.addEventListener("pointerlockchange", this.onLockChange);
     document.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("mouseup", this.onMouseUp);
+    // window 外でドラッグを離した場合、mouseup が発火せず dragging が残る → blur で確実にリセット
+    window.addEventListener("blur", this.onWindowBlur);
   }
 
   /** canvas mousedown: 左クリックでドラッグ開始 + Pointer Lock 試行 */
@@ -56,6 +58,16 @@ export class KeyboardMouseInput {
 
   private onMouseUp = (): void => {
     this.dragging = false;
+  };
+
+  private onWindowBlur = (): void => {
+    // window フォーカス喪失時にドラッグ状態 + 押下キー + running を全部クリア
+    // (フォーカス戻ったら mousedown / keydown が再来するので問題ない)
+    this.dragging = false;
+    this.keys.clear();
+    this.bus.state.moveX = 0;
+    this.bus.state.moveY = 0;
+    this.bus.state.running = false;
   };
 
   private onLockChange = (): void => {
@@ -129,6 +141,7 @@ export class KeyboardMouseInput {
     document.removeEventListener("pointerlockchange", this.onLockChange);
     document.removeEventListener("mousemove", this.onMouseMove);
     window.removeEventListener("mouseup", this.onMouseUp);
+    window.removeEventListener("blur", this.onWindowBlur);
     if (document.pointerLockElement === this.canvas && document.exitPointerLock) {
       document.exitPointerLock();
     }

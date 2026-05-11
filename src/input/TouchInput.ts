@@ -154,6 +154,25 @@ export class TouchInput {
     this.bus.emit("pause");
   };
 
+  /**
+   * 入力状態を即座に中立化する (Phase 5-E review fix)。
+   * pause / resetToTitle で呼ぶと、スティック押下中・スワイプ中の宙ぶらりんな pointerId が
+   * 残って次フレームで意図しない move/look が反映される問題を防ぐ。
+   *
+   * - 仮想スティック / 視点 swipe の pointerId を null に戻す
+   * - knob 表示位置をリセット
+   * - bus.state の move{X,Y} / look{DX,DY} を 0 に
+   */
+  reset(): void {
+    this.stickPointerId = null;
+    this.lookPointerId = null;
+    this.controls.knob.style.transform = "";
+    this.bus.state.moveX = 0;
+    this.bus.state.moveY = 0;
+    this.bus.state.lookDX = 0;
+    this.bus.state.lookDY = 0;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;

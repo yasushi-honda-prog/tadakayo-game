@@ -62,14 +62,24 @@ def flip_horizontal(src_path: str, dst_path: str) -> None:
     print(f"  [FLIP] {os.path.basename(src_path)} → {os.path.basename(dst_path)}")
 
 
-def add_foot_shadow(path: str) -> tuple[float, float]:
+def add_foot_shadow(path: str) -> tuple[float, float, str]:
     """
     画像下端中央 (35-65% × 92-99%) に半透明黒楕円を強制描画。
     既存 character pixel と alpha-composite される (上書きでなく重ね)。
 
-    return: (before_opaque_pct, after_opaque_pct) 下端中央領域の不透明率
+    **冪等性保証**: PNG metadata `tdk-foot-shadow=v1` を sentinel として使う。
+    既に適用済みなら再描画せず skip して画像が二重暗化することを防ぐ。
+
+    return: (before_opaque_pct, after_opaque_pct, status)
+        status: "applied" or "skipped" (既適用)
     """
     img = Image.open(path).convert("RGBA")
+    sentinel = (img.info or {}).get("tdk-foot-shadow")
+    if sentinel == "v1":
+        # 既適用 → スキップ (冪等性確保)
+        opaque = _foot_opaque_pct(img)
+        return opaque, opaque, "skipped"
+
     W, H = img.size
 
     # 楕円位置: 中央寄り、下端ぎりぎりの帯
@@ -87,10 +97,15 @@ def add_foot_shadow(path: str) -> tuple[float, float]:
     odraw = ImageDraw.Draw(overlay)
     odraw.ellipse(bbox, fill=(20, 20, 20, 210))
     composited = Image.alpha_composite(img, overlay)
-    composited.save(path, "PNG")
+
+    # PNG metadata (tEXt chunk) で sentinel 埋め込み
+    from PIL import PngImagePlugin
+    pnginfo = PngImagePlugin.PngInfo()
+    pnginfo.add_text("tdk-foot-shadow", "v1")
+    composited.save(path, "PNG", pnginfo=pnginfo)
 
     after = _foot_opaque_pct(composited)
-    return before, after
+    return before, after, "applied"
 
 
 def _foot_opaque_pct(img: Image.Image) -> float:
@@ -114,21 +129,23 @@ def main() -> int:
     for src, dst in FLIP_PAIRS:
         flip_horizontal(os.path.join(IMG_DIR, src), os.path.join(IMG_DIR, dst))
 
-    # 2. 全 sprite にフットシャドウ強制
-    print("\n=== Step 2: フットシャドウ強制 (黒楕円) ===")
-    print(f"{'sprite':40s}  before  →  after")
-    print("-" * 60)
+    # 2. 全 sprite にフットシャドウ強制 (冪等性 = sentinel "tdk-foot-shadow=v1" で skip)
+    print("\n=== Step 2: フットシャドウ強制 (冪等、PNG metadata sentinel) ===")
+    print(f"{'sprite':40s}  before  →  after  status")
+    print("-" * 70)
+    missing = []
     for name in SPRITES_FOR_SHADOW:
         path = os.path.join(IMG_DIR, name)
         if not os.path.exists(path):
             print(f"  [MISS] {name}")
+            missing.append(name)
             continue
-        before, after = add_foot_shadow(path)
-        status = "OK" if after >= 30.0 else "WARN"
-        print(f"  [{status}] {name:35s}  {before:5.1f}%  →  {after:5.1f}%")
+        before, after, status = add_foot_shadow(path)
+        result = "OK" if after >= 30.0 else "WARN"
+        print(f"  [{result}] {name:35s}  {before:5.1f}%  →  {after:5.1f}%  [{status}]")
 
-    print("\nDone.")
-    return 0
+    print("\nDone." + (f" ({len(missing)} missing)" if missing else ""))
+    return 1 if missing else 0
 
 
 if __name__ == "__main__":
