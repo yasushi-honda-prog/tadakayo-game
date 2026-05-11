@@ -446,22 +446,26 @@ export class Game {
    * 2. 「タダスクの塔へ」 = Village.landmarks.towerTop に到達
    */
   private setupMissions(): void {
-    // Heart 10 個を村に分散配置。プレイヤーが歩きやすい高さ (y=0.4) に置き、
-    // Collectible 内部で浮遊オフセット (+0.6) が付く。
-    const spots: Array<[number, number]> = [
-      [0, 2],         // 中央広場の南手前 (スポーン直後に見える)
-      [-3, -2],       // 中央広場の左奥
-      [3, -2],        // 中央広場の右奥
-      [-9, 4],        // 塔への道
-      [9, 4],         // 広場への道
-      [-13, 4],       // 塔へさらに進んだ位置
-      [13, 4],        // 広場の手前
-      [18, 1],        // タダレク広場の入り口
-      [18, 7],        // タダレク広場の奥
-      [0, -10],       // 会館への道
+    // Heart 10 個を村に分散配置。各スポット毎に「足元の床面 y」を指定して、
+    // Collectible 内部の地面影 (y_in_object=0.02) が床下に隠れないようにする。
+    // - 中央広場のピンク床: y=0.15 (床 thickness 0.075×2)
+    // - タダレク広場の床: y=0.2
+    // - 草地 / パス: y=0
+    // Collectible.object.position.y = ground、内部 mesh は ground + 0.6 で浮遊。
+    const spots: Array<{ x: number; y: number; z: number }> = [
+      { x: 0, y: 0.15, z: 2 },     // 中央広場の南手前 (スポーン直後に見える)
+      { x: -3, y: 0.15, z: -2 },   // 中央広場の左奥
+      { x: 3, y: 0.15, z: -2 },    // 中央広場の右奥
+      { x: -9, y: 0, z: 4 },       // 草地 (塔への道)
+      { x: 9, y: 0, z: 4 },        // 草地 (広場への道)
+      { x: -13, y: 0, z: 4 },      // 草地 (塔へさらに進んだ位置)
+      { x: 13, y: 0, z: 4 },       // 草地 (広場の手前)
+      { x: 18, y: 0.2, z: 1 },     // タダレク広場の入り口
+      { x: 18, y: 0.2, z: 7 },     // タダレク広場の奥
+      { x: 0, y: 0, z: -10 },      // 草地 (会館への道)
     ];
-    for (const [x, z] of spots) {
-      const c = new Collectible(new THREE.Vector3(x, 0.4, z));
+    for (const s of spots) {
+      const c = new Collectible(new THREE.Vector3(s.x, s.y, s.z));
       c.onCollect(() => this.audio.pickupSE());
       this.collectibles.push(c);
       this.scene.add(c.object);
