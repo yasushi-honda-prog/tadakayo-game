@@ -5,6 +5,7 @@ import { ThirdPersonCamera } from "../entities/Camera";
 import { Village } from "../world/Village";
 import { Collectible } from "../entities/Collectible";
 import { NPC } from "../entities/NPC";
+import { DanceNpc } from "../entities/DanceNpc";
 import { InputBus } from "../input/InputBus";
 import { KeyboardMouseInput } from "../input/KeyboardMouseInput";
 import { TouchInput } from "../input/TouchInput";
@@ -16,6 +17,7 @@ import { MissionPanel } from "../ui/MissionPanel";
 import { DialogBox } from "../ui/DialogBox";
 import { MobileControls } from "../ui/MobileControls";
 import { PauseMenu } from "../ui/PauseMenu";
+import { ScoreScreen, type ScoreStats } from "../ui/ScoreScreen";
 import { MissionManager } from "../missions/MissionManager";
 import { Mission } from "../missions/Mission";
 import { CollectMission } from "../missions/missions/CollectMission";
@@ -63,6 +65,17 @@ export class Game {
   private rafId: number | null = null;
   private disposed = false;
   private playing = false;
+  private elapsed = 0;
+
+  // Phase 5-F: 演出
+  private skyDome: THREE.Mesh | null = null;
+  private contactShadowGeometry!: THREE.CircleGeometry;
+  private contactShadowMaterial!: THREE.MeshBasicMaterial;
+  private contactShadows: Array<{ mesh: THREE.Mesh; target: THREE.Object3D; groundY: number }> = [];
+  private danceNpcs: DanceNpc[] = [];
+  private playStartMs = 0;
+  private scoreScreen!: ScoreScreen;
+  private scoreScreenTimerId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(canvas: HTMLCanvasElement, physics: PhysicsWorld) {
     this.physics = physics;
@@ -72,13 +85,27 @@ export class Game {
     // シーン基盤
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(BRAND_HEX.SKY_TOP);
-    this.scene.fog = new THREE.Fog(BRAND_HEX.SKY_BOTTOM, 28, 80);
+    // Phase 5-F: フォグの遠方色を空底色に合わせて遠景の境目を消す + 開始距離を 24 に短縮して
+    // 距離感を強める (元 28 → 24)
+    this.scene.fog = new THREE.Fog(BRAND_HEX.SKY_BOTTOM, 24, 80);
 
     const hemi = new THREE.HemisphereLight(0xffffff, BRAND_HEX.PINK, 0.85);
     this.scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xfff2e5, 1.0);
     dir.position.set(8, 18, 8);
     this.scene.add(dir);
+
+    // Phase 5-F: スカイドーム (グラデーション内向き球)
+    this.scene.add(this.buildSkyDome());
+
+    // Phase 5-F: contact shadow registry (player + 各 NPC の足元に追従する半透明黒円板)
+    this.contactShadowGeometry = new THREE.CircleGeometry(0.45, 24);
+    this.contactShadowMaterial = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false,
+    });
 
     // 描画
     this.renderer = new THREE.WebGLRenderer({
@@ -127,6 +154,15 @@ export class Game {
       onMuteToggle: (muted) => this.audio.setMuted(muted),
       onReset: () => this.resetToTitle(),
     });
+    // Phase 5-F: スコア画面 (タダカヨ村マスター達成時)
+    this.scoreScreen = new ScoreScreen({
+      onReplay: () => {
+        this.resetToTitle();
+        // タイトル経由せず即プレイ再開: titleScreen を一瞬挟まず startPlay
+        void this.startPlay();
+      },
+      onClose: () => this.resetToTitle(),
+    });
 
     const hint = document.getElementById("hud-action-hint");
     const hintTarget = document.getElementById("hud-action-target");
@@ -141,7 +177,8 @@ export class Game {
 
     this.bus.on((event) => {
       if (event === "panel") {
-        if (!this.playing || this.pauseMenu.isVisible()) return;
+        // scoreScreen 表示中も M キーを無視 (Low 修正: スコア画面の裏で panel が開く問題)
+        if (!this.playing || this.pauseMenu.isVisible() || this.scoreScreen.isVisible()) return;
         this.missionPanel.toggle();
         if (this.missionPanel.isOpen()) this.missionPanel.render(this.missions.all);
       } else if (event === "action") {
@@ -168,19 +205,115 @@ export class Game {
    * mission cleared 時のハンドラ:
    * - Hit jingle 再生 + HUD で toast
    * - MetaMission に通知 (id 一致なら自身も cleared 判定)
-   * - MetaMission 自身が cleared した場合は「タダカヨ村マスター」エンディング演出
+   * - MetaMission 自身が cleared した場合は「タダカヨ村マスター」エンディング演出 + スコア画面
    */
   private handleMissionCleared(m: Mission): void {
     this.audio.missionClearSE();
     if (m instanceof MetaMission) {
-      // メタミッション cleared = エンディング (より目立つ toast + 長めの表示)
       this.hud.flashClear(`🎉 ${m.title} 達成！`, 5000);
+      // Phase 5-F: スコア画面を 0.8 秒遅延して開く (toast を読む間)。
+      // resetToTitle / dispose との競合で stale show を防ぐため timer id を保持し、
+      // 発火時にも disposed/playing の世代チェックを入れる (codex+evaluator High 修正)
+      if (this.scoreScreenTimerId !== null) clearTimeout(this.scoreScreenTimerId);
+      this.scoreScreenTimerId = window.setTimeout(() => {
+        this.scoreScreenTimerId = null;
+        if (this.disposed || !this.playing) return;
+        this.scoreScreen.show(this.collectStats());
+      }, 800);
     } else {
       this.hud.flashClear(`クリア！ ${m.title}`);
     }
     if (this.metaMission !== null && !(m instanceof MetaMission)) {
       this.metaMission.notifyMissionCleared(m.id);
     }
+  }
+
+  /**
+   * Phase 5-F: スコア画面に渡す統計を集める。
+   * 各 mission の current/target をそのまま使うことで Single Source of Truth を維持。
+   */
+  private collectStats(): ScoreStats {
+    const elapsedSec = (performance.now() - this.playStartMs) / 1000;
+    const collect = this.missions.all.find((m) => m.id === "collect-dx-seeds");
+    const reach = this.missions.all.find((m) => m.id === "reach-tower-top");
+    return {
+      elapsedSec,
+      hearts: {
+        current: collect?.current ?? 0,
+        total: collect?.target ?? 10,
+      },
+      talks: {
+        current: this.talkMission?.current ?? 0,
+        total: this.talkMission?.target ?? 3,
+      },
+      dances: {
+        current: this.danceMission?.current ?? 0,
+        total: this.danceMission?.target ?? 3,
+      },
+      reachedTower: (reach?.current ?? 0) >= (reach?.target ?? 1),
+    };
+  }
+
+  /** Phase 5-F: スカイドーム (内向き球、頂点カラーで上から下へグラデーション) */
+  private buildSkyDome(): THREE.Mesh {
+    const geometry = new THREE.SphereGeometry(120, 32, 16);
+    const material = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: {
+        topColor: { value: new THREE.Color(BRAND_HEX.SKY_TOP) },
+        bottomColor: { value: new THREE.Color(BRAND_HEX.SKY_BOTTOM) },
+        offset: { value: 30 },
+        exponent: { value: 0.7 },
+      },
+      vertexShader: `
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPos;
+        void main() {
+          float h = normalize(vWorldPos + vec3(0.0, offset, 0.0)).y;
+          float t = pow(max(h, 0.0), exponent);
+          gl_FragColor = vec4(mix(bottomColor, topColor, t), 1.0);
+        }
+      `,
+    });
+    const dome = new THREE.Mesh(geometry, material);
+    dome.frustumCulled = false;
+    this.skyDome = dome;
+    return dome;
+  }
+
+  /**
+   * Phase 5-F: target の足元 (XZ) に追従する半透明黒円板を生成して registry に登録。
+   *
+   * **接地影の原理**: target.position.y は jumping/bouncing で変動するが、影は地面に
+   * 残るべき。そのため初期化時の position.y + 0.02 を groundY として保存し、
+   * 追従ループでは XZ のみ更新する。Player は地面 (y=0) → 影 y=0.02、
+   * 床上の NPC (y=0.2) → 影 y=0.22、DanceNpc bounce 中も影は床面に固定される。
+   */
+  private addContactShadow(target: THREE.Object3D): void {
+    const groundY = target.position.y + 0.02;
+    const mesh = new THREE.Mesh(this.contactShadowGeometry, this.contactShadowMaterial);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(target.position.x, groundY, target.position.z);
+    this.scene.add(mesh);
+    this.contactShadows.push({ mesh, target, groundY });
+  }
+
+  /** Phase 5-F: contact shadow を全部消す (resetToTitle 時) */
+  private clearContactShadows(): void {
+    for (const cs of this.contactShadows) this.scene.remove(cs.mesh);
+    this.contactShadows = [];
   }
 
   /**
@@ -307,7 +440,8 @@ export class Game {
     this.lastTime = now;
     if (dt > 0.1) dt = 0.1;
 
-    if (this.playing && !this.pauseMenu.isVisible()) {
+    if (this.playing && !this.pauseMenu.isVisible() && !this.scoreScreen.isVisible()) {
+      this.elapsed += dt;
       // 視点回転を取り込んでカメラ更新の前に
       this.camera.applyLookDelta();
 
@@ -329,6 +463,17 @@ export class Game {
 
       // NPC 近接判定 + 「E で話す」ヒント更新
       this.updateNpcsAndHint(this.player.position, dt);
+
+      // Phase 5-F: 村のアニメ (噴水・旗) + ダンス NPC + contact shadow 追従
+      this.village.animate(dt, this.elapsed);
+      for (const d of this.danceNpcs) d.animate(dt);
+      for (const cs of this.contactShadows) {
+        cs.mesh.position.x = cs.target.position.x;
+        cs.mesh.position.z = cs.target.position.z;
+        // y は初期化時に固定した groundY を使う (codex Low 修正: ジャンプ/bounce 中も
+        // 影は地面に残ることで接地感が自然になる)
+        cs.mesh.position.y = cs.groundY;
+      }
     }
 
     this.renderer.render(this.scene, this.camera.camera);
@@ -474,6 +619,23 @@ export class Game {
     for (const n of [elder, nurse, manager]) {
       this.npcs.push(n);
       this.scene.add(n.object);
+      this.addContactShadow(n.object);
+    }
+
+    // Phase 5-F: タダレク広場で自動的に踊る NPC を 2 体配置 (ミッション 4 のヒント)
+    const reku = this.village.landmarks.rekuCenter;
+    const dance1 = new DanceNpc({
+      position: new THREE.Vector3(reku.x - 1.6, reku.y, reku.z + 1.6),
+      phase: 0,
+    });
+    const dance2 = new DanceNpc({
+      position: new THREE.Vector3(reku.x + 1.6, reku.y, reku.z - 1.4),
+      phase: Math.PI / 2,
+    });
+    for (const d of [dance1, dance2]) {
+      this.danceNpcs.push(d);
+      this.scene.add(d.object);
+      this.addContactShadow(d.object);
     }
   }
 
@@ -497,6 +659,12 @@ export class Game {
     this.hud.show();
     this.refreshMissionUI();
     if (this.inputMode === "mobile") this.mobileControls?.show();
+    // Phase 5-F: スタート時刻 + プレイヤー contact shadow 登録 (再 startPlay 時も clean)
+    this.playStartMs = performance.now();
+    this.elapsed = 0;
+    if (!this.contactShadows.some((cs) => cs.target === this.player.object)) {
+      this.addContactShadow(this.player.object);
+    }
     this.playing = true;
   }
 
@@ -519,6 +687,14 @@ export class Game {
     this.hideActionHint();
     this.nearestInteractableNpc = null;
     if (this.missionPanel.isOpen()) this.missionPanel.toggle();
+    // Phase 5-F: scoreScreen reopen 競合防止 + pauseMenu が ScoreScreen 経由で残るのを防ぐ
+    // (codex High 修正: scoreScreen onReplay 経路でも pauseMenu が閉じることを保証)
+    if (this.scoreScreenTimerId !== null) {
+      clearTimeout(this.scoreScreenTimerId);
+      this.scoreScreenTimerId = null;
+    }
+    this.scoreScreen.hide();
+    this.pauseMenu.close();
     if (this.inputMode === "mobile") {
       this.mobileControls?.hide();
       this.touchInput?.reset();
@@ -535,6 +711,13 @@ export class Game {
       n.dispose();
     }
     this.npcs = [];
+    // Phase 5-F: ダンス NPC + contact shadow の clean up (player shadow 含めて全消し)
+    for (const d of this.danceNpcs) {
+      this.scene.remove(d.object);
+      d.dispose();
+    }
+    this.danceNpcs = [];
+    this.clearContactShadows();
     this.missions.dispose();
     this.talkMission = null;
     this.danceMission = null;
@@ -562,16 +745,33 @@ export class Game {
   dispose(): void {
     this.disposed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    if (this.scoreScreenTimerId !== null) {
+      clearTimeout(this.scoreScreenTimerId);
+      this.scoreScreenTimerId = null;
+    }
     window.removeEventListener("resize", this.handleResize);
     this.kbInput.dispose();
     this.touchInput?.dispose();
     this.pauseMenu.dispose();
+    this.scoreScreen.dispose();
     this.mobileControls?.hide();
     this.player.dispose();
     this.camera.dispose();
     this.village.dispose();
     for (const c of this.collectibles) c.dispose();
     for (const n of this.npcs) n.dispose();
+    for (const d of this.danceNpcs) d.dispose();
+    // Phase 5-F: contact shadow mesh を scene から remove してから geometry/material dispose
+    // (Medium 修正: scene 残留 mesh が dispose 済み geometry を参照する不整合を解消)
+    this.clearContactShadows();
+    this.contactShadowGeometry.dispose();
+    this.contactShadowMaterial.dispose();
+    if (this.skyDome !== null) {
+      const m = this.skyDome.material;
+      if (Array.isArray(m)) m.forEach((mm) => mm.dispose());
+      else m.dispose();
+      this.skyDome.geometry.dispose();
+    }
     this.missions.dispose();
     this.audio.dispose();
     this.renderer.dispose();
