@@ -34,6 +34,7 @@ export class Collectible {
 
   constructor(position: THREE.Vector3) {
     this.position = position.clone();
+    // baseY: ハート mesh の浮遊中心 (絶対 y)。position.y は足元の床面、+0.6 で目線高さに浮遊
     this.baseY = position.y + 0.6;
 
     this.material = new THREE.MeshStandardMaterial({
@@ -45,10 +46,13 @@ export class Collectible {
     });
 
     this.mesh = this.buildHeartMesh();
-    this.mesh.position.set(0, this.baseY, 0);
+    // mesh.position.y は object 相対なので、絶対 baseY から object.y (= position.y) を引く
+    this.mesh.position.set(0, this.baseY - this.position.y, 0);
 
     this.object = new THREE.Group();
-    this.object.position.set(this.position.x, 0, this.position.z);
+    // object.position.y = 床面 (PR #23): 中央広場 0.15 / タダレク広場 0.2 / 草地 0。
+    // 影は object 内 y=0.02 のため、床面 +0.02 に貼り付き「床下に隠れる」問題を解消。
+    this.object.position.set(this.position.x, this.position.y, this.position.z);
     this.object.add(this.mesh);
 
     // 地面影: ハートが空中浮遊しているとき XZ 位置を視認しやすくする (Phase 5-F UX 改善)。
