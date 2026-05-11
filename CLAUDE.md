@@ -9,10 +9,11 @@
 
 ## 開発状態(2026-05-11 時点)
 
-- **Phase 5 完全完了** ✅: 5-A 物理基盤 → 5-B 村構築 → 5-C ミッション基盤 → 5-D NPC/会話 → 5-E モバイル+残ミッション → 5-F 演出+ScoreScreen+DanceNpc+SkyDome → hotfix 6 件 (#19-24、影/靴/preload/床上影)
+- **Phase 5 完全完了** ✅: 5-A 物理基盤 → 5-B 村構築 → 5-C ミッション基盤 → 5-D NPC/会話 → 5-E モバイル+残ミッション → 5-F 演出+ScoreScreen+DanceNpc+SkyDome → hotfix 6 件 (#19-24)
+- **Phase 6 polish 完了** ✅ (2026-05-11): #26 赤靴 sprite 再生成 / #27 bundle code split / #28 preload crossorigin で handoff 残課題 A/B/D を全消化
 - 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
 - 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + HUD ヒント すべて稼働
-- 残課題 (low priority): nano-banana 赤靴再生成 (脚周り赤縁完全解消) / bundle code split / deprecated warning
+- 残課題なし (Rapier 0.20+ アップデート時に init() deprecation 再評価のみ)
 - ハンドオフ: `docs/handoff/LATEST.md` 参照
 
 ## 公開 URL と base path
@@ -121,7 +122,7 @@ let rel = facingYaw - cameraYaw - Math.PI;
 - `main` push → GitHub Actions が自動デプロイ
 - workflow: `.github/workflows/deploy.yml`
 - Pages の Source は **GitHub Actions** に設定済み
-- bundle size: 2,773 KB / gzip 974 KB — Rapier WASM が大半。code split で初回 < 500KB 削減余地あり (next session 候補)
+- bundle (Phase 6, PR #27 後): main chunk **538 KB / gzip 138 KB**, rapier chunk **2,237 KB / gzip 836 KB** (dynamic import で並列ダウンロード)
 
 ## モバイル対応 (Phase 5-E 完了)
 

@@ -1,29 +1,34 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-11
+最終更新: 2026-05-11 (Phase 6 polish 完了)
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `c655cb7`)
-- **Phase 5 完全完了** ✅(2026-05-11、PR #15 → #17 → #18 → #19 → #20 → #21 → #22 → #23 → #24 すべて main 反映)
+- **現在ブランチ**: `main`(同期済み、最新コミット `3370848`)
+- **Phase 5 + 6 polish 完了** ✅(2026-05-11)
 - **未マージ PR**: なし
+
+## Phase 6 polish (2026-05-11) で消化した残課題
+
+| PR | 内容 | 効果 |
+|---|---|---|
+| **#26** | nano-banana で赤靴 sprite 14 枚再生成 | 脚周りの細い赤縁 (PR #19 妥協点) を根絶 |
+| **#27** | Rapier WASM を dynamic import で別 chunk に分離 | main chunk **2,773 KB → 538 KB (-80%)**, gzip **974 KB → 138 KB (-86%)** |
+| **#28** | preload link に crossorigin="anonymous" 追加 | console warnings **41 → 1 (98% 削減)** |
 
 ## 次セッションで最初にやること
 
 1. `cd /Users/yyyhhh/Projects/tadakayo/game-ai && direnv allow` で `GH_TOKEN` 読み込み
 2. **本番 URL の最終確認**(https://yasushi-honda-prog.github.io/tadakayo-game/):
    - 全 5 ミッション完走 + スコア画面表示 + リプレイ
-   - 噴水アニメ + ダンス NPC + HUD ヒント + 環境演出
-   - 全 10 ハートに地面影
-   - スタート時のキャラチラつきなし
-3. 残課題 (優先順):
-   - **A. nano-banana 赤靴再生成** (脚周り赤縁の完全解消 + デザイン精度 UP、~7-10 分 + クォータ消費)
-   - **B. bundle code split** (Rapier WASM を遅延ロード、初回読込み時間短縮、~30 分)
-   - **C. README/CLAUDE.md 完全反映** (Phase 5-F + hotfix 経緯、ADR 追加、~30 分)
-   - **D. deprecated parameters warning** (Three.js r169+ Sprite/InstancedMesh 内部レガシー API、要調査)
+   - キャラ表示が赤靴 + 黒アウトラインで脚周り赤縁なし
+   - 初回ロード体感が軽い (DevTools Network で main 138 KB / rapier 836 KB が並列取得されることを確認)
+3. 残課題 (low priority、急がない):
+   - **Rapier 0.20+ アップデート時の init() deprecation 再評価** (現状 `R.init()` 無引数呼び出しで internal warning 1 件、実害なし)
+   - 新規ミッション追加 / 演出強化 / コンテンツ拡張 など自由に着手可
 4. 不明な場合は `/catchup` で最新 Issue / PR / handoff を再確認
 
 ## これまでの経緯
@@ -40,6 +45,7 @@
 | 5-E | モバイル + DanceMission + MetaMission + 4 件バグ修正 + レビュー fix 7 件 (PR #15) | ✅ |
 | 5-F | 演出 + ScoreScreen + DanceNpc + HUD ヒント + SkyDome (PR #17, 18) | ✅ |
 | 5-F hotfix | 影 renderOrder / 靴穴埋め / contact shadow 全廃 / NPC 影削除 / preload / 床上ハート影 (PR #19-24) | ✅ |
+| 6 polish | 赤靴 sprite 再生成 (#26) / bundle code split (#27) / preload crossorigin (#28) | ✅ |
 
 詳細プラン: `/Users/yyyhhh/.claude/plans/yasushi-honda-prog-github-githubpages-us-transient-summit.md`
 
@@ -84,10 +90,10 @@
 
 | 項目 | 重要度 | 備考 |
 |---|---|---|
-| 脚周りの細い赤縁 (PR #19 v8 妥協点) | Low | nano-banana 赤靴再生成で完全解消可。**ユーザー C 案承認済** |
-| deprecated parameters warning (Three.js r169+) | Low | 実害なし、Sprite/InstancedMesh 内部 |
-| bundle 2,773 KB / gzip 974 KB | Medium | Rapier WASM が大半。code split で初回 < 500KB に削減可能 |
-| README / プロジェクト CLAUDE.md の Phase 5-F 反映 | Medium | docstring level の整理待ち |
+| ~~脚周りの細い赤縁 (PR #19 v8 妥協点)~~ | ✅ 解消 | PR #26 nano-banana 直接生成で根本解消 |
+| ~~bundle 2,773 KB / gzip 974 KB~~ | ✅ 解消 | PR #27 dynamic import で main 538 KB / gzip 138 KB |
+| ~~preload credentials mode 不一致 warning 40+ 件~~ | ✅ 解消 | PR #28 crossorigin="anonymous" 追加で 41→1 |
+| Rapier `init()` deprecated parameters warning | Low | `@dimforge_rapier3d-compat.js:2516` ライブラリ内部の自己呼び出し起因、app コードから修正不可。Rapier 0.20+ アップデート時に再評価候補 |
 
 ## アーキテクチャ概要 (Phase 5-F 完了時点)
 
