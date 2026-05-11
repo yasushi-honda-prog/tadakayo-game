@@ -1,7 +1,15 @@
 import type { InputBus } from "./InputBus";
 
 /**
- * PC 入力: WASD/矢印で移動、マウスで視点回転（Pointer Lock）、Space ジャンプ、E アクション。
+ * PC 入力: WASD/矢印で移動、マウスで視点回転、Space ジャンプ、E アクション。
+ *
+ * **視点回転の 2 系統** (Phase 5-E バグ修正):
+ * 1. **Pointer Lock 取得時**: マウス全体の動き (movementX/Y) を継続的に消費。FPS ライク。
+ *    - canvas mousedown で `requestPointerLock()` を試行 (ブラウザ確認ダイアログが出る)
+ * 2. **Pointer Lock 未取得時**: マウス押下中のみドラッグで視点回転 (押下解除で停止)
+ *    - ユーザーが Pointer Lock 許可しなかった場合 / Mac システム設定で許可制限がある場合のフォールバック
+ *
+ * 旧実装は Pointer Lock 必須で、許可されない or ブラウザ条件不一致で「視点が全く動かない」状態だった。
  */
 export class KeyboardMouseInput {
   private readonly bus: InputBus;
@@ -9,6 +17,11 @@ export class KeyboardMouseInput {
   private readonly keys = new Set<string>();
   private pointerLocked = false;
   private disposed = false;
+
+  // Drag fallback (Pointer Lock 未取得時の視点回転)
+  private dragging = false;
+  private dragPrevX = 0;
+  private dragPrevY = 0;
 
   constructor(canvas: HTMLCanvasElement, bus: InputBus) {
     this.canvas = canvas;
@@ -19,25 +32,50 @@ export class KeyboardMouseInput {
   private bind(): void {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
-    this.canvas.addEventListener("click", this.requestLock);
+    this.canvas.addEventListener("mousedown", this.onCanvasMouseDown);
     document.addEventListener("pointerlockchange", this.onLockChange);
     document.addEventListener("mousemove", this.onMouseMove);
+    window.addEventListener("mouseup", this.onMouseUp);
   }
 
-  private requestLock = (): void => {
+  /** canvas mousedown: 左クリックでドラッグ開始 + Pointer Lock 試行 */
+  private onCanvasMouseDown = (e: MouseEvent): void => {
+    if (e.button !== 0) return;
+    this.dragging = true;
+    this.dragPrevX = e.clientX;
+    this.dragPrevY = e.clientY;
+    // Pointer Lock 取得を試行 (許可されれば次フレームから movementX/Y で継続視点回転)
     if (!this.pointerLocked && this.canvas.requestPointerLock) {
-      this.canvas.requestPointerLock();
+      try {
+        this.canvas.requestPointerLock();
+      } catch {
+        // 取得失敗時はドラッグ fallback で視点回転継続
+      }
     }
+  };
+
+  private onMouseUp = (): void => {
+    this.dragging = false;
   };
 
   private onLockChange = (): void => {
     this.pointerLocked = document.pointerLockElement === this.canvas;
+    // Pointer Lock 解除時にドラッグ状態もリセット (Esc 押下で lock 解除されると mouseup が来ないため)
+    if (!this.pointerLocked) this.dragging = false;
   };
 
   private onMouseMove = (e: MouseEvent): void => {
-    if (!this.pointerLocked) return;
-    this.bus.state.lookDX += e.movementX;
-    this.bus.state.lookDY += e.movementY;
+    if (this.pointerLocked) {
+      // Pointer Lock 中: マウスの絶対移動量を消費 (FPS 操作)
+      this.bus.state.lookDX += e.movementX;
+      this.bus.state.lookDY += e.movementY;
+    } else if (this.dragging) {
+      // ドラッグ中: 前回位置からの差分を消費 (押している間のみ視点回転)
+      this.bus.state.lookDX += e.clientX - this.dragPrevX;
+      this.bus.state.lookDY += e.clientY - this.dragPrevY;
+      this.dragPrevX = e.clientX;
+      this.dragPrevY = e.clientY;
+    }
   };
 
   private onKeyDown = (e: KeyboardEvent): void => {
@@ -87,9 +125,10 @@ export class KeyboardMouseInput {
     this.disposed = true;
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
-    this.canvas.removeEventListener("click", this.requestLock);
+    this.canvas.removeEventListener("mousedown", this.onCanvasMouseDown);
     document.removeEventListener("pointerlockchange", this.onLockChange);
     document.removeEventListener("mousemove", this.onMouseMove);
+    window.removeEventListener("mouseup", this.onMouseUp);
     if (document.pointerLockElement === this.canvas && document.exitPointerLock) {
       document.exitPointerLock();
     }
