@@ -134,13 +134,15 @@ def colorize_shoes_red(path: str) -> tuple[int, str]:
         - 黒アウトライン (RGB 低) と肌色 (R>>G>B、B<200) は保持
         - 短パン (元から赤、G/B<200) も保持
 
-    操作 2: アウトライン内側の透明な「穴」も赤で塗りつぶす (red-v2 で追加)
+    操作 2: アウトライン内側の透明な「穴」も赤で塗りつぶす (red-v3 で追加)
         - scipy.binary_fill_holes で「不透明ピクセルの連結成分が囲む穴」を検出
         - 元の透過処理で「白い靴 + 白い背景チェッカー」が連結して透明化された
           スケルトン領域を救済 (ユーザー報告: 靴中身が透明でピンク背景が透ける)
+        - **靴限定**: 穴埋めは下端 12% 領域のみ (red-v2 では 30% 全体 → 脚/短パン内の
+          透明領域も誤検出して赤塗りされた問題への対策、codex review High)
 
-    **冪等性保証**: PNG metadata `tdk-shoe-color=red-v2` を sentinel に使用。
-    既存 red-v1 (穴埋めなし版) は再処理対象、red-v2 は skip。foot-shadow sentinel は別 key で共存。
+    **冪等性保証**: PNG metadata `tdk-shoe-color=red-v3` を sentinel に使用。
+    既存 red-v1/red-v2 は再処理対象、red-v3 は skip。foot-shadow sentinel は別 key で共存。
 
     return: (changed_pixel_count, status)
     """
@@ -150,48 +152,55 @@ def colorize_shoes_red(path: str) -> tuple[int, str]:
 
     img = Image.open(path).convert("RGBA")
     info = img.info or {}
-    if info.get("tdk-shoe-color") == "red-v2":
+    if info.get("tdk-shoe-color") == "red-v3":
         return 0, "skipped"
 
     W, H = img.size
-    y_start = int(H * 0.70)  # 下から 30% (靴領域、短パンは除外)
+    y_start_white = int(H * 0.70)  # 操作 1: 下から 30% で白→赤置換 (短パンの裾を含むが赤は条件不一致で保持)
+    y_start_holes = int(H * 0.88)  # 操作 2: 下から 12% に絞って穴埋め (靴のみ、脚/短パン内の透明領域を誤検出しない)
 
     arr = np.array(img)  # shape: (H, W, 4)
-    region = arr[y_start:H, :, :]  # 下端 30% の view
 
-    # 操作 1: 白いピクセルを判定
-    region_alpha = region[:, :, 3]
+    # 操作 1: 下端 30% 領域内の白いピクセルを赤に置換
+    region_white = arr[y_start_white:H, :, :]
     white_mask = (
-        (region_alpha > 200)
-        & (region[:, :, 0] >= 200)
-        & (region[:, :, 1] >= 200)
-        & (region[:, :, 2] >= 200)
+        (region_white[:, :, 3] > 200)
+        & (region_white[:, :, 0] >= 200)
+        & (region_white[:, :, 1] >= 200)
+        & (region_white[:, :, 2] >= 200)
     )
 
-    # 操作 2: アウトライン内側の穴を検出
-    opaque_mask = region_alpha > 128
+    # 操作 2: 下端 12% (靴帯) 内のアウトライン内側の透明穴を赤で塗りつぶし
+    region_holes = arr[y_start_holes:H, :, :]
+    opaque_mask = region_holes[:, :, 3] > 128
     filled = binary_fill_holes(opaque_mask)
     if filled is None:
-        # scipy が None を返すことはないが型安全のため
         filled = opaque_mask
-    hole_mask = filled & ~opaque_mask  # 穴 = 「埋めた後不透明」かつ「元は透明」
+    hole_mask_h = filled & ~opaque_mask  # 穴 = 「埋めた後不透明」かつ「元は透明」
 
-    target_mask = white_mask | hole_mask
-    changed = int(target_mask.sum())
+    # 適用 (操作 1)
+    region_white[:, :, 0] = np.where(white_mask, 227, region_white[:, :, 0])
+    region_white[:, :, 1] = np.where(white_mask, 53, region_white[:, :, 1])
+    region_white[:, :, 2] = np.where(white_mask, 53, region_white[:, :, 2])
+    region_white[:, :, 3] = np.where(white_mask, 255, region_white[:, :, 3])
+    arr[y_start_white:H, :, :] = region_white
 
-    # 赤 (#e33535) で塗りつぶし。穴 (元 alpha=0) は alpha=255 に
-    region[:, :, 0] = np.where(target_mask, 227, region[:, :, 0])
-    region[:, :, 1] = np.where(target_mask, 53, region[:, :, 1])
-    region[:, :, 2] = np.where(target_mask, 53, region[:, :, 2])
-    region[:, :, 3] = np.where(target_mask, 255, region[:, :, 3])
-    arr[y_start:H, :, :] = region
+    # 適用 (操作 2、穴埋めは alpha=0 → 255 + 赤)
+    region_holes2 = arr[y_start_holes:H, :, :]  # 操作 1 適用後の最新 view
+    region_holes2[:, :, 0] = np.where(hole_mask_h, 227, region_holes2[:, :, 0])
+    region_holes2[:, :, 1] = np.where(hole_mask_h, 53, region_holes2[:, :, 1])
+    region_holes2[:, :, 2] = np.where(hole_mask_h, 53, region_holes2[:, :, 2])
+    region_holes2[:, :, 3] = np.where(hole_mask_h, 255, region_holes2[:, :, 3])
+    arr[y_start_holes:H, :, :] = region_holes2
+
+    changed = int(white_mask.sum()) + int(hole_mask_h.sum())
 
     new_img = Image.fromarray(arr, "RGBA")
 
     pnginfo = PngImagePlugin.PngInfo()
     if info.get("tdk-foot-shadow") == "v1":
         pnginfo.add_text("tdk-foot-shadow", "v1")
-    pnginfo.add_text("tdk-shoe-color", "red-v2")
+    pnginfo.add_text("tdk-shoe-color", "red-v3")
     new_img.save(path, "PNG", pnginfo=pnginfo)
     return changed, "applied"
 
