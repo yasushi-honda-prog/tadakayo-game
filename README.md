@@ -83,6 +83,31 @@ npm run preview
 
 詳細プラン: `~/.claude/plans/yasushi-honda-prog-github-githubpages-us-transient-summit.md`
 
+## データ保存とアカウント
+
+本作は **Firebase Anonymous Authentication + Firestore** で自己ベストと累計クリア数をクラウド保存します。アカウント登録は不要です。
+
+| 項目 | 内容 |
+|---|---|
+| 認証方式 | Anonymous Auth (ユーザー登録不要、初回起動時に匿名 UID を自動発行) |
+| 保存先 | Firestore `gameRecords/{uid}` (`bestTimeSec` / `bestStars` / `playCount`) |
+| UID 保存場所 | ブラウザの IndexedDB (Firebase Auth の persistence) |
+| オフライン挙動 | Firebase 未接続時は localStorage のみで動作 (グレースフルデグレード) |
+
+### 記録が失われる条件 (重要)
+
+匿名 UID はブラウザに紐付くため、以下のケースでは過去の記録に戻れません。一般的な Anonymous Auth の仕様です。
+
+- **ブラウザのストレージをクリアした場合** (Cookie / サイトデータ / IndexedDB の削除)
+- **別の端末・別のブラウザでアクセスした場合** (新しい UID が発行されるため、別人扱い)
+- **シークレットモード / プライベートウィンドウ** (セッション終了で UID が消える)
+
+同じ端末・同じブラウザで遊び続ける限りは、自己ベストや累計クリア数は維持されます。プレイヤー間で記録を共有する仕組みは将来検討 (現状は端末単位のローカル記録)。
+
+### ローカル開発でクラウド連携を有効化する場合
+
+`.env.local` に Vite env (`VITE_FIREBASE_API_KEY` 他 6 件) を設定すると Anonymous Auth + Firestore が有効になります。未設定時は localStorage のみで動作します (詳細は `.env.example` 参照)。
+
 ## デプロイ
 
 `main` ブランチに push すると GitHub Actions が自動でビルドし **Firebase Hosting** (`https://tadakayo-game-yh.web.app/`) にデプロイします (`.github/workflows/firebase-hosting.yml`)。
