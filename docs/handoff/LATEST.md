@@ -6,7 +6,7 @@
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL (新、現用)**: https://tadakayo-game-yh.web.app/ (Firebase Hosting)
-- **公開 URL (旧、未停止)**: https://yasushi-honda-prog.github.io/tadakayo-game/ (内容は Stage 3 マージ前で凍結、redirect 化は別 PR)
+- **公開 URL (旧、redirect 中)**: https://yasushi-honda-prog.github.io/tadakayo-game/ → 新 URL へ `meta refresh` + `location.replace` で自動転送 (`redirect/index.html` + `.github/workflows/pages-redirect.yml`)
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
 - **現在ブランチ**: `main`(同期済み、最新コミット `0e8314b`)
 - **Phase 6 ブラッシュアップ完了** ✅ (2026-05-13)
@@ -92,8 +92,7 @@ firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage
 
 | # | 項目 | 重要度 | 備考 |
 |---|---|---|---|
-| 1 | **旧 GitHub Pages URL を HTML redirect 化** | 中 | `yasushi-honda-prog.github.io/tadakayo-game/` のコンテンツは Stage 3 マージ前で凍結。`<meta http-equiv="refresh">` で新 URL に転送する deploy.yml を別途追加 |
-| 2 | **Firebase Hosting 自動デプロイ CI** | 中 | Service Account 作成 (要明示承認) + GitHub Secrets 登録 + `FirebaseExtended/action-hosting-deploy` を `.github/workflows/firebase-hosting.yml` で記述 |
+| 1 | **Firebase Hosting 自動デプロイ CI** | 中 | Service Account 作成 (要明示承認) + GitHub Secrets 登録 + `FirebaseExtended/action-hosting-deploy` を `.github/workflows/firebase-hosting.yml` で記述 |
 | 3 | **Collectible.ts の y 計算修正** | 低 | codex Stage 4 で指摘された既存 bug (床上ハートが余分に 0.15m 高浮遊)。視覚影響軽微で本番運用許容範囲 |
 | 4 | **Issue #31 (段差 snap 失敗)** | 低 | `postponed` ラベル付き、ユーザー明示指示時のみ着手 |
 | 5 | **Anonymous UID 永続性のドキュメント化** | 低 | ブラウザクリア / 別端末では記録に戻れない仕様を README / docs に明記 (codex Stage 3 Low #4) |
@@ -110,7 +109,7 @@ firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage
    - タイトル → スタート → welcome toast (4.5 秒) → コンパス HUD「DXの種 4m」
    - ポーズメニュー → 設定 ▾ → 感度・音量スライダー
    - ScoreScreen (5 mission 全クリア時) → 自己ベスト・累計クリア表示
-3. 残課題を着手する場合は上記表 #1-7 から優先度順に選択
+3. 残課題を着手する場合は上記表 #1-6 から優先度順に選択
 4. 不明な場合は `/catchup` で最新 Issue / PR / handoff を再確認
 
 ## 公開 URL とデプロイ運用

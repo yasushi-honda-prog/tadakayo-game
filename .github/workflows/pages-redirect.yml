@@ -1,0 +1,49 @@
+name: Pages Redirect
+
+# Stage 3 で Firebase Hosting に移行後、旧 GitHub Pages URL
+# (https://yasushi-honda-prog.github.io/tadakayo-game/) を新 URL
+# (https://tadakayo-game-yh.web.app/) へリダイレクトするための専用 workflow。
+#
+# - `redirect/` 配下の静的 HTML だけを GitHub Pages にデプロイする。
+# - 既存 `deploy.yml` (Build & Type Check) には触らず関心分離。
+# - github.event.* の信頼できない入力は `run:` で展開しない (deploy.yml と同方針)。
+#   本 workflow には `run:` ステップ自体が存在しないため injection 面はゼロ。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "redirect/**"
+      - ".github/workflows/pages-redirect.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-redirect
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload redirect artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: redirect
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
