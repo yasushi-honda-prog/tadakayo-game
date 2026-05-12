@@ -728,10 +728,14 @@ html, body {
   display: grid;
   place-items: center;
   z-index: 100;
+  /* 親 #ui-layer が pointer-events: none を持つため、モーダル overlay は明示的に
+     auto に戻さないと canvas にクリックが貫通する (PauseMenu / MissionPanel と同様) */
+  pointer-events: auto;
   animation: score-fade-in 0.4s ease-out;
 }
 .score-screen.hidden {
   display: none;
+  pointer-events: none;
 }
 @keyframes score-fade-in {
   from { opacity: 0; }
