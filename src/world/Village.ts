@@ -408,6 +408,11 @@ export class Village {
       }),
       FOUNTAIN_PARTICLES
     );
+    // 粒子の実位置は fountainCenter (cx, 0, cz) 周辺だが、InstancedMesh の
+    // bounding sphere は local origin (0,0,0) 基準で計算されるため、
+    // カメラ角度によって world 原点が frustum 外に出ると全粒子が一括 cull される。
+    // 粒子 18 個と軽量なので frustumCulled を無効化する (描画コスト < cull バグ)。
+    droplets.frustumCulled = false;
     for (let i = 0; i < FOUNTAIN_PARTICLES; i++) {
       this.dropletState.push({
         vx: 0,
