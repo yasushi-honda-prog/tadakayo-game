@@ -33,6 +33,10 @@
   - #50 `title-logo.png` の閉じ領域内に取り残された明灰チェッカー柄 8,248 px (R~254) を全領域 alpha=0 にする `scripts/fix-title-logo-checker.py` を追加 → 「カ」内部の市松模様残骸を除去
   - 真因: `remove-checker-bg.py` は 4 隅起点の連結成分しか辿らないため、文字輪郭で**完全に閉じた領域**のチェッカー柄は透明化されず焼き込まれていた (キャラ画像と違い「内側白色保護 (靴の中身)」が不要なロゴ用に専用スクリプトを分離)
   - title-logo は HTML `<img>` 表示 (index.html:46) のため Three.js mipmap / alphaTest 問題は無関係
+- **Phase 5-L タイトル本番化 + UI 操作説明統一 + 噴水水しぶき frustum cull hotfix 完了** ✅ (2026-05-12 セッション 6、3 PR):
+  - #52 タイトル画面: `Phase 5-F プロトタイプ` バッジ削除 (本番仕様化) + 操作説明を `<kbd>` + `<dl>` の「キー → やること」対応表化 (デスクトップ 2 列 / モバイル 1 列スタック)
+  - #53 (hotfix) 噴水の水しぶき (InstancedMesh) が特定視点で全消失する問題を `droplets.frustumCulled = false` で修正。**真因**: Three.js の InstancedMesh bounding sphere は「メッシュ local origin + geometry の bounding sphere」で計算されるが、`droplets` はシーン Group のローカル原点 (0,0,0) に追加されたまま per-instance で `fountainCenter (cx=18, _, cz=4)` 周辺に粒子を描画するため、カメラから world (0,0,0) が frustum 外に出る角度で全粒子が一括 cull される false-positive。`waterColumn` は通常 Mesh で position が `(cx, 1.75, cz)` のため bounding sphere が正しく付随し影響なし → 「水柱は見えるのに粒子だけ消える」症状の説明
+  - #54 HUD 上部ピル + ポーズ画面の操作説明を PR #52 と同じ `<kbd>` 対応表に統一 (`.hint-section` / `.hint-list` / `kbd` CSS をゲーム全体で共有、ゲーム内 UI の操作説明表現が 3 箇所で完全統一)
 - 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
 - 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント すべて稼働
 - **残課題**:
