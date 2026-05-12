@@ -1,15 +1,45 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-12 (Phase 5-K: title-logo「カ」内部チェッカー柄透明化 hotfix)
+最終更新: 2026-05-12 (Phase 5-L: タイトル本番化 + UI 操作説明統一 + 噴水水しぶき frustum cull hotfix)
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `8776c9e`)
-- **v1.0.0 リリース済 + Phase 5-J UI / 輪郭品質改善 + Phase 5-K title-logo 透明化 hotfix 完了** ✅(2026-05-12)
+- **現在ブランチ**: `main`(同期済み、最新コミット `3a68b13`)
+- **v1.0.0 リリース済 + Phase 5-J UI / 輪郭品質改善 + Phase 5-K title-logo 透明化 + Phase 5-L タイトル本番化 + 噴水 hotfix 完了** ✅(2026-05-12)
 - **未マージ PR**: なし
+
+## 2026-05-12 セッション 6 成果 (Phase 5-L: タイトル本番化 + UI 操作説明統一 + 噴水 hotfix)
+
+タイトル画面の「プロトタイプ」表記を削除し本番化。さらにタイトル / HUD / ポーズ画面の操作説明を `<kbd>` + `<dl>` ベースの「キー → やること」対応表に全箇所統一。途中で発覚した噴水水しぶき消失バグ (Three.js InstancedMesh frustum culling false-positive) も同セッションで修正。3 PR マージ。
+
+| PR | 内容 | 効果 |
+|---|---|---|
+| **#52** | タイトル画面: (a) `Phase 5-F プロトタイプ` バッジ削除 + (b) 操作説明を `<dl>` 対応表化 (`<kbd>` で赤ピル、デスクトップ 2 列 / モバイル 1 列スタック) | タイトル画面が本番仕様に、操作説明の可読性大幅向上 |
+| **#53** | (hotfix) 噴水の水しぶき (InstancedMesh) が特定視点で全消失する問題を `droplets.frustumCulled = false` で修正 | カメラ角度で water droplets が一括消失するバグを解消 |
+| **#54** | (a) HUD 上部ピルを `<span class="hud-hint-item">` + `<kbd>` に分解 (flex-wrap 対応) + (b) ポーズ画面の操作説明を PR #52 と同じ `<dl>` 対応表に統一 | ゲーム内 UI 全体で操作説明の表現が統一、kbd ピルで視覚的にキー入力箇所が一目で分かる |
+
+### #52 詳細 (タイトル本番化)
+- `index.html` から `<div class="phase-tag">Phase 5-F プロトタイプ（演出 + スコア画面）</div>` を削除、合わせて `src/styles/main.css` の `.phase-tag` クラスも削除
+- 操作説明を `<section class="hint-section">` + `<h3 class="hint-section-title">` + `<dl class="hint-list">` で再構築、キーは `<kbd>` で赤の丸ピル化
+- `.hint-list` は `grid-template-columns: minmax(auto, max-content) 1fr` で 2 列、`@media (max-width: 768px)` で 1 列スタック (dt の下に dd を字下げ)
+- 冗長表現を平易化: 「画面クリックでマウス視点操作 ON」→「画面をクリック → マウスで視点を回せるようになる」、「E（会話・踊り）」→「近くの人に話しかける／広場でいっしょに踊る」
+
+### #53 詳細 (噴水水しぶき frustum cull bug)
+- **症状**: ユーザー報告「特定の位置で水しぶきだけが消える (水柱は残る)」
+- **根本原因**: `droplets` (InstancedMesh) は `this.object.add(droplets)` でローカル位置 (0,0,0) に追加されていたが、実際の粒子は `fountainCenter (cx=18, _, cz=4)` 周辺で `setMatrixAt` 更新される。Three.js は InstancedMesh の bounding sphere を **メッシュの local origin (= world (0,0,0)) + geometry の bounding sphere (radius 1.0)** で計算するため、カメラ frustum から world (0,0,0) が外れる角度では実際の粒子位置に関わらず InstancedMesh 全体が一括 cull される。`waterColumn` (通常 Mesh、position が `(cx, 1.75, cz)`) は bounding sphere が正しく付随するため影響なし → 「水柱は見えるのに粒子だけ消える」症状の説明
+- **修正**: 粒子 18 個と軽量なため `droplets.frustumCulled = false` で frustum 判定をバイパス (Three.js 公式 examples の `webgl_instancing_*` でも頻出パターン)
+
+### #54 詳細 (HUD + ポーズ画面の操作説明統一)
+- HUD 上部ピル: 長文 1 行を 6 つの `<span class="hud-hint-item">` グループに分解、`<kbd>` でキーを赤の丸ピル化、`flex-wrap: wrap` で画面幅が狭い時に折り返し対応
+- ポーズ画面 (操作説明 ▾): PC / モバイルの 2 セクションを `<dl>` 対応表に再構築、タイトル画面と同じ `.hint-section` / `.hint-list` / `kbd` CSS を再利用
+
+### 重要な学び (本セッション)
+1. **Three.js InstancedMesh の frustum culling は注意が必要**: InstancedMesh の bounding sphere は「メッシュの local origin + geometry の bounding sphere」で計算される。シーン Group のローカル原点 (0,0,0) に追加されたまま per-instance で遠方に粒子を描画すると、カメラから world 原点が frustum 外に出る角度で全粒子が一括 cull される false-positive が発生。粒子数が少ない場合は `frustumCulled = false` がもっとも素直な対処。代替の `computeBoundingSphere()` 毎フレーム再計算は perf 的に割に合わない
+2. **UI コンポーネント横断で同じパターンを共有すると保守性が高い**: タイトル画面 (#52) で導入した `.hint-section` / `.hint-list` / `kbd` CSS は HUD・ポーズ画面 (#54) でもそのまま再利用でき、3 箇所で一貫した UX を最小コストで実現。次回類似の操作説明が出てきたらまずこのパターン適用を検討
+3. **小規模バグ修正は仮説 3 つ以上の素早い列挙が高速判断につながる**: 噴水水しぶき消失バグは「視点で消える + 水柱は残る (Mesh) + 粒子だけ消える (InstancedMesh)」という症状から、3 仮説 (frustum culling / 透明度ソート / shadow) を上げて Three.js の InstancedMesh bounding sphere 仕様 1 個に確信を持って絞り込み、コード 1 行 (+ コメント 3 行) で解決
 
 ## 2026-05-12 セッション 5 成果 (Phase 5-K: title-logo「カ」内部チェッカー柄透明化 hotfix)
 
