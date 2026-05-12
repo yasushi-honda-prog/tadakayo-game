@@ -225,13 +225,38 @@ export class Village {
     const baseX = -18;
     const baseZ = 4;
 
-    // 看板（簡素なテキスト風プレート）
-    this.addBoxMesh(
-      physics,
-      { x: 0.6, y: 0.6, z: 0.05 },
-      { x: baseX + 4, y: 1.4, z: baseZ },
-      COLOR.TOWER_STEP_ALT
+    // 看板（「タダスクの塔」テキスト入り、Player に塔の場所を案内する）
+    // BoxGeometry の 6 面のうち ±Z の 2 面 (Player が読む正面・背面) にだけ
+    // Canvas テクスチャを貼り、それ以外は黄色プレートのまま。
+    const signTexture = makeSignTexture("タダスクの塔", "#ffd23a", "#e33535");
+    const signFaceMat = new THREE.MeshStandardMaterial({
+      map: signTexture,
+      roughness: 0.7,
+    });
+    const signSideMat = new THREE.MeshStandardMaterial({
+      color: COLOR.TOWER_STEP_ALT,
+      roughness: 0.7,
+    });
+    // BoxGeometry material 順: +X, -X, +Y, -Y, +Z, -Z
+    const signMaterials = [
+      signSideMat,
+      signSideMat,
+      signSideMat,
+      signSideMat,
+      signFaceMat,
+      signFaceMat,
+    ];
+    const signHalf = { x: 0.9, y: 0.55, z: 0.05 };
+    const signMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(signHalf.x * 2, signHalf.y * 2, signHalf.z * 2),
+      signMaterials
     );
+    const signPos = { x: baseX + 4, y: 1.4, z: baseZ };
+    signMesh.position.set(signPos.x, signPos.y, signPos.z);
+    signMesh.castShadow = true;
+    this.object.add(signMesh);
+    physics.addStaticCuboid(signHalf, signPos);
+    // 看板の柱
     this.addBoxMesh(
       physics,
       { x: 0.05, y: 0.7, z: 0.05 },
@@ -580,9 +605,46 @@ export class Village {
       if (obj instanceof THREE.Mesh) {
         obj.geometry.dispose();
         const mat = obj.material;
-        if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
-        else mat.dispose();
+        if (Array.isArray(mat)) {
+          mat.forEach((m) => {
+            if (m instanceof THREE.MeshStandardMaterial && m.map) m.map.dispose();
+            m.dispose();
+          });
+        } else {
+          if (mat instanceof THREE.MeshStandardMaterial && mat.map) mat.map.dispose();
+          mat.dispose();
+        }
       }
     });
   }
+}
+
+/**
+ * 看板用テクスチャを Canvas で生成する (黄色背景 + 赤縁 + 赤い太字テキスト)。
+ * Noto Sans JP がロードされていない初期描画タイミングではシステム sans-serif に
+ * フォールバックする。
+ */
+function makeSignTexture(text: string, bgHex: string, fgHex: string): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("2D canvas context が取得できません");
+  // 背景
+  ctx.fillStyle = bgHex;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // 縁取り
+  ctx.strokeStyle = fgHex;
+  ctx.lineWidth = 14;
+  ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+  // テキスト
+  ctx.fillStyle = fgHex;
+  ctx.font = "bold 88px 'Noto Sans JP', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.anisotropy = 4;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
