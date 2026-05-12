@@ -200,22 +200,29 @@ export class Village {
     rim.position.y = 0.16;
     this.object.add(rim);
 
-    // 中央モニュメント (Issue #31: 装飾化)
-    // 赤い台座 (上面 1.2×1.2m, h=0.95m) + ピンクキューブ (上面 0.8×0.8m, h=1.75m) は
-    // どちらも Player capsule (radius 0.35m) が乗れる寸法。collider を外して見た目だけ維持。
+    // 中央モニュメント (台座 + ピンクキューブ)。
+    // Phase 5-G で「Player が乗れる」回避のため装飾化したが、ユーザー判断で
+    // 「すり抜けは駄目 (上に乗れても良い)」に方針変更。collider を復活させた。
+    // 段差エッジでの sprite 浮きは PR #36 で sprite オフセットの真因が解消済。
+    const pedestalHalf = { x: 0.6, y: 0.4, z: 0.6 };
+    const pedestalPos = { x: 0, y: 0.55, z: 0 };
     const pedestal = new THREE.Mesh(
-      new THREE.BoxGeometry(1.2, 0.8, 1.2),
+      new THREE.BoxGeometry(pedestalHalf.x * 2, pedestalHalf.y * 2, pedestalHalf.z * 2),
       new THREE.MeshStandardMaterial({ color: COLOR.PLAZA_RIM, roughness: 0.7 })
     );
-    pedestal.position.set(0, 0.55, 0);
+    pedestal.position.set(pedestalPos.x, pedestalPos.y, pedestalPos.z);
     this.object.add(pedestal);
+    physics.addStaticCuboid(pedestalHalf, pedestalPos);
 
+    const monumentHalf = { x: 0.4, y: 0.4, z: 0.4 };
+    const monumentPos = { x: 0, y: 1.35, z: 0 };
     const monument = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 0.8, 0.8),
+      new THREE.BoxGeometry(monumentHalf.x * 2, monumentHalf.y * 2, monumentHalf.z * 2),
       new THREE.MeshStandardMaterial({ color: COLOR.PLAZA, roughness: 0.7 })
     );
-    monument.position.set(0, 1.35, 0);
+    monument.position.set(monumentPos.x, monumentPos.y, monumentPos.z);
     this.object.add(monument);
+    physics.addStaticCuboid(monumentHalf, monumentPos);
   }
 
   // ───────────────────────────────────────────────────────────
@@ -322,18 +329,23 @@ export class Village {
       COLOR.REKU_FLOOR
     );
 
-    // 4 隅の柱 (Issue #31: 装飾化 — 上面 0.36×0.36m に Player capsule (radius 0.35m) が
-    // 着地できてしまう問題を回避するため collider を外す。見た目だけ維持)
+    // 4 隅の柱。
+    // Phase 5-G で装飾化したが、ユーザー判断で「すり抜けは駄目」に方針変更し
+    // collider を復活させた。上面 0.36×0.36m に Player capsule (r=0.35m) が
+    // ギリギリ乗れる寸法だが、PR #36 で sprite 浮き真因が解消済のため許容する。
+    const pillarHalf = { x: 0.18, y: 1.4, z: 0.18 };
     const cornerOff = halfFloor - 0.4;
     for (const dx of [-cornerOff, cornerOff]) {
       for (const dz of [-cornerOff, cornerOff]) {
+        const pillarPos = { x: cx + dx, y: 1.4, z: cz + dz };
         const pillar = new THREE.Mesh(
-          new THREE.BoxGeometry(0.36, 2.8, 0.36),
+          new THREE.BoxGeometry(pillarHalf.x * 2, pillarHalf.y * 2, pillarHalf.z * 2),
           new THREE.MeshStandardMaterial({ color: COLOR.REKU_PILLAR, roughness: 0.7 })
         );
-        pillar.position.set(cx + dx, 1.4, cz + dz);
+        pillar.position.set(pillarPos.x, pillarPos.y, pillarPos.z);
         this.object.add(pillar);
-        // 柱の上の球（飾り）
+        physics.addStaticCuboid(pillarHalf, pillarPos);
+        // 柱の上の球（飾り、装飾のみ）
         const cap = new THREE.Mesh(
           new THREE.SphereGeometry(0.25, 16, 12),
           new THREE.MeshStandardMaterial({ color: COLOR.PLAZA, roughness: 0.6 })
