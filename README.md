@@ -85,8 +85,18 @@ npm run preview
 
 ## デプロイ
 
-`main` ブランチに push すると GitHub Actions が自動でビルドし GitHub Pages にデプロイします。
-GitHub の Settings → Pages → Source は **GitHub Actions** に設定済み。
+`main` ブランチに push すると GitHub Actions が自動でビルドし **Firebase Hosting** (`https://tadakayo-game-yh.web.app/`) にデプロイします (`.github/workflows/firebase-hosting.yml`)。
+
+PR の build 検証は `deploy.yml` (Build & Type Check) が担当します。
+
+旧 GitHub Pages URL (`https://yasushi-honda-prog.github.io/tadakayo-game/`) は `pages-redirect.yml` で新 URL へ自動転送する redirect ページに置き換わっています。
+
+### 必要な GitHub Secrets
+
+| Secret | 用途 |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT_TADAKAYO_GAME_YH` | `github-actions-hosting@tadakayo-game-yh.iam.gserviceaccount.com` の JSON key (権限: `roles/firebasehosting.admin` のみ) |
+| `VITE_FIREBASE_API_KEY` 他 6 件 | Vite build 時の Firebase config (`.env.local` と同じ値) |
 
 ## ブランドガイドライン
 

@@ -63,7 +63,8 @@
 - Firestore: `(default)` database、`asia-northeast1`、`gameRecords/{uid}` コレクション
 - Authentication: Anonymous Auth 有効化
 - `vite.config.ts` の `base: "/"` (Firebase Hosting ルート配信、`tadakayo-game/` prefix なし)
-- デプロイ: `firebase deploy --only hosting --project tadakayo-game-yh --account yasushi-honda@tadakayo.jp` (手動、CI 自動デプロイは別 PR)
+- デプロイ: `main` push → `.github/workflows/firebase-hosting.yml` で自動 deploy (Stage 4 / 2026-05-13)。手動 fallback は `firebase deploy --only hosting --project tadakayo-game-yh --account yasushi-honda@tadakayo.jp`
+- 自動デプロイ用 SA: `github-actions-hosting@tadakayo-game-yh.iam.gserviceaccount.com` (権限 `roles/firebasehosting.admin` のみ、最小権限)。SA JSON key は GitHub Secret `FIREBASE_SERVICE_ACCOUNT_TADAKAYO_GAME_YH` に格納、`VITE_FIREBASE_*` 6 件も Secrets に登録済み
 
 ## アカウント / 認証 (env-isolation 準拠)
 

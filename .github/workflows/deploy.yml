@@ -1,8 +1,8 @@
 name: Build & Type Check
 
-# Stage 3 / 2026-05-13: GitHub Pages デプロイから Firebase Hosting (手動 `firebase deploy`)
-# 運用に移行したため、本 workflow は **ビルド検証のみ** を担当。
-# 自動デプロイ CI (Firebase Service Account 認証) は別 PR で再構築する。
+# Stage 3 / 2026-05-13: GitHub Pages デプロイから Firebase Hosting に移行したため、
+# 本 workflow は **PR の build 検証のみ** を担当する。
+# main push 時の本番 deploy は `firebase-hosting.yml` が担う (Stage 4 / 2026-05-13)。
 #
 # セキュリティ注意: 本 workflow は github.event.* の信頼できない入力 (issue title, PR body,
 # commit message 等) を `run:` 内で直接展開しない設計。将来 deploy step を追加する際も、
@@ -40,7 +40,8 @@ jobs:
         run: npm run typecheck
 
       - name: Build (verify only, no deploy)
-        # VITE_FIREBASE_* secrets が未設定でも build 自体は通る (FirebaseService が
-        # null を返してゲームは localStorage 単独動作するグレースフルデグレード設計)。
-        # 本番デプロイは現状ローカルから `firebase deploy --only hosting` で実施。
+        # 本番デプロイは `firebase-hosting.yml` が main push 時に Secrets を注入して
+        # 実行する。本 step は VITE_FIREBASE_* 無しで build が通ることを検証する
+        # (FirebaseService が null を返し localStorage 単独動作にフォールバックする
+        # グレースフルデグレード設計)。
         run: npm run build

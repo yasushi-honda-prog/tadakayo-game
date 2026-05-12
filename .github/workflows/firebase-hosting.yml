@@ -1,0 +1,83 @@
+name: Firebase Hosting Deploy
+
+# Stage 3 (PR #58) で Firebase Hosting に移行後、手動 `firebase deploy --only hosting`
+# 運用だったところを GitHub Actions で自動化する。
+#
+# - main push および workflow_dispatch のみで live channel に deploy する。
+#   PR open 時の preview channel は外部 fork からの secrets 不可制約があり、別 PR で検討。
+# - 既存 `deploy.yml` (Build & Type Check) は PR build 検証のために残し、
+#   本 workflow は main push 時の live deploy 専用とする。
+# - `paths-ignore` で docs / README / redirect 専用 PR では deploy をスキップ。
+# - github.event.* の信頼できない入力は `run:` 内で展開しない (deploy.yml と同方針)。
+#   本 workflow には信頼できない入力を扱う `run:` ステップが存在せず injection 面ゼロ。
+#
+# 必要な GitHub Secrets (Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT_TADAKAYO_GAME_YH   GitHub Actions 用 SA の JSON key
+#   VITE_FIREBASE_API_KEY                       Vite build 時の Firebase config
+#   VITE_FIREBASE_AUTH_DOMAIN                       〃
+#   VITE_FIREBASE_PROJECT_ID                        〃 (= "tadakayo-game-yh")
+#   VITE_FIREBASE_STORAGE_BUCKET                    〃
+#   VITE_FIREBASE_MESSAGING_SENDER_ID               〃
+#   VITE_FIREBASE_APP_ID                            〃
+#
+# Secrets 未設定でも本 workflow は明示失敗する (FirebaseExtended/action-hosting-deploy
+# が SA JSON 不在で error)。VITE_FIREBASE_* が未設定の場合、build は通るが本番側で
+# FirebaseService が null を返し localStorage 単独動作にデグレードする。
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "redirect/**"
+      - ".github/workflows/pages-redirect.yml"
+      - "docs/**"
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: firebase-hosting-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: firebase-hosting-live
+      url: https://tadakayo-game-yh.web.app/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting (live channel)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TADAKAYO_GAME_YH }}
+          channelId: live
+          projectId: tadakayo-game-yh
