@@ -80,6 +80,12 @@ export class ScoreScreen {
   show(stats: ScoreStats): void {
     if (this.opened) return;
     this.opened = true;
+    // Pointer Lock 中だと UI 上のボタンがクリックできない (lock 中はカーソル非表示・
+    // 全 mouse イベントが canvas に吸われる)。ScoreScreen はキー操作ではなく
+    // missionCleared から自動表示されるため、ここで明示的に解除する。
+    if (document.pointerLockElement && document.exitPointerLock) {
+      document.exitPointerLock();
+    }
     this.timeEl.textContent = formatTime(stats.elapsedSec);
     this.heartsEl.textContent = `${stats.hearts.current} / ${stats.hearts.total}`;
     this.talksEl.textContent = `${stats.talks.current} / ${stats.talks.total}`;
