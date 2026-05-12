@@ -1,15 +1,33 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-12 (Phase 5-J: UI / 輪郭品質改善 + sprite 不可視 hotfix)
+最終更新: 2026-05-12 (Phase 5-K: title-logo「カ」内部チェッカー柄透明化 hotfix)
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `03302b2`)
-- **v1.0.0 リリース済 + Phase 5-J UI / 輪郭品質改善 + sprite 不可視 hotfix 完了** ✅(2026-05-12)
+- **現在ブランチ**: `main`(同期済み、最新コミット `8776c9e`)
+- **v1.0.0 リリース済 + Phase 5-J UI / 輪郭品質改善 + Phase 5-K title-logo 透明化 hotfix 完了** ✅(2026-05-12)
 - **未マージ PR**: なし
+
+## 2026-05-12 セッション 5 成果 (Phase 5-K: title-logo「カ」内部チェッカー柄透明化 hotfix)
+
+ユーザー報告: タイトル画面ロゴの「カ」の内部にチェッカー柄が残る。
+
+| PR | 内容 | 効果 |
+|---|---|---|
+| **#50** | `title-logo.png` の閉じ領域内チェッカー柄 8,248 px (R~254 明灰) を透明化 + `scripts/fix-title-logo-checker.py` 追加 | 「カ」内部の市松模様残骸を除去、本番反映確認済 |
+
+### #50 詳細
+- **真因**: `remove-checker-bg.py` は 4 隅起点の連結成分しか辿らないため、文字輪郭で**完全に閉じた領域**に取り残されたチェッカー柄ピクセル (alpha=255, RGB=明灰の市松ピクセル値) が焼き込まれたまま残っていた。「カ」の閉じ領域だけが該当 (他文字は外周と細い隙間で繋がっていた)
+- **対応**: ロゴ画像は「キャラ内側白色保護 (靴の中身)」が不要なので、bg_candidate (透明 / 純黒 / 明灰グレー) 該当ピクセルを **全領域 alpha=0** にする専用後処理 `scripts/fix-title-logo-checker.py` を追加
+- ロゴは HTML `<img class="title-logo-img">` (index.html:46) で表示 → Three.js sprite ではないため mipmap / alphaTest 問題は無関係
+- 本番 (GitHub Pages) で「カ」内部にピンク背景が透けて見えることをユーザー確認済 (Image #2)
+
+### 重要な学び (本セッション)
+1. **AI 生成画像の後処理は「キャラ用」と「ロゴ用」で要件が分かれる**: キャラは靴の白を保護する必要 (4 隅起点 + char_dilation 救済) があるが、ロゴは保護対象がない (全 bg_candidate を透明化) → スクリプトを分離。汎用化のために統合スクリプトに `--all-bg` フラグを足すより、ユースケース別の単機能スクリプトを並列に持つ方が読みやすい
+2. **PR の base は必ず作成直後に確認する**: 当初 `gh pr create` のデフォルト base が `feat/bootstrap` になっており +6197/-1084 / 86 files の巨大 PR として作成された。`gh pr edit 50 --base main` で +48/-0 / 2 files の適正サイズに修正。次回以降は `gh pr create --base main` を明示指定する
 
 ## 2026-05-12 セッション 4 成果 (Phase 5-J: UI + 輪郭品質改善 + sprite 不可視 hotfix)
 
@@ -141,6 +159,7 @@ v1.0.0 リリース後の追加 polish。6 PR マージ。最後の PR #48 は�
 2. **本番動作確認** (https://yasushi-honda-prog.github.io/tadakayo-game/):
    - Player の足が地面に接地 (sprite 浮きが消えていること、PR #36)
    - HUD/タイトル画面のヒント文言が新表現 (「クリックでマウス視点変更 ON / Esc で OFF」「矢印キーで移動」、PR #37)
+   - タイトルロゴ「カ」内部のチェッカー柄が消えていること (PR #50、本番反映済)
 3. 残課題 (low priority):
    - **Issue #31 OPEN (スコープ 3 のみ残)**: 段差エッジで capsule が浮く Rapier KCC 挙動 (P2、本人 postpone 宣言済「単独着手は当面見送り、要請があれば再着手」)
    - **噴水/ベンチ歩行乗り上げ**: PR #35 close (ユーザー判断「乗れても良い」)、sprite 浮き解消後の見え方を本番で再評価し UX 判定
@@ -166,6 +185,9 @@ v1.0.0 リリース後の追加 polish。6 PR マージ。最後の PR #48 は�
 | 5-G dance | Player ダンス機能 + 専用 sprite + EDM BGM (PR #30) | ✅ |
 | 5-G polish | 柱/木/モニュメント collider 修正 (PR #32, #33、Issue #31 スコープ 1+2+追加) | ✅ |
 | 5-H 真因対応 | Player sprite 0.85m 浮き修正 (PR #36、Issue #31 真因) + UX 文言修正 (PR #37) | ✅ |
+| 5-I ScoreScreen UX | ScoreScreen クリック貫通真因解消 + 立て看板テキスト + 中央モニュメント/4 柱 collider 復活 (PR #39, #40) | ✅ |
+| 5-J UI/輪郭品質 | カーソル非表示 + 白ハロー/alpha smoothing + 看板貫通修正 + sprite 不可視 hotfix (PR #43-#48) | ✅ |
+| 5-K title-logo | 「カ」内部チェッカー柄透明化 hotfix (PR #50) | ✅ |
 
 詳細プラン: `/Users/yyyhhh/.claude/plans/yasushi-honda-prog-github-githubpages-us-transient-summit.md`
 

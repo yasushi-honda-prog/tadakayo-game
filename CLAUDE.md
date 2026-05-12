@@ -29,6 +29,10 @@
   - #46 PNG 後処理 `scripts/soften-alpha.py` 追加: 22 PNG の alpha を Gaussian σ=0.6 でぼかし、AI 線画の折れ線ジャギーをソフト化
   - #47 タダスクの塔の看板柱が看板を 0.55m 貫通して Z-fighting (看板テクスチャに細い縦線) → 柱を看板下面 (y=0.85) で止める
   - **#48 sprite 不可視 hotfix**: ユーザー報告「Player + NPC + DanceNpc すべて表示されない」(dev / Playwright Chromium では正常、ユーザー環境のみ NG) → codex セカンドオピニオン → PR #45 を sprite 側 revert (LinearFilter 戻し + generateMipmaps=false 明示) + SpriteMaterial に `alphaTest: 0.01` 追加。**仮説**: PR #45 mipmap completeness 違反 + PR #46 で生まれた alpha=1-10 極小値が mipmap 縮小で更に薄まり特定 GPU で完全透明化
+- **Phase 5-K title-logo「カ」内部チェッカー柄透明化 hotfix 完了** ✅ (2026-05-12 セッション 5):
+  - #50 `title-logo.png` の閉じ領域内に取り残された明灰チェッカー柄 8,248 px (R~254) を全領域 alpha=0 にする `scripts/fix-title-logo-checker.py` を追加 → 「カ」内部の市松模様残骸を除去
+  - 真因: `remove-checker-bg.py` は 4 隅起点の連結成分しか辿らないため、文字輪郭で**完全に閉じた領域**のチェッカー柄は透明化されず焼き込まれていた (キャラ画像と違い「内側白色保護 (靴の中身)」が不要なロゴ用に専用スクリプトを分離)
+  - title-logo は HTML `<img>` 表示 (index.html:46) のため Three.js mipmap / alphaTest 問題は無関係
 - 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
 - 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント すべて稼働
 - **残課題**:
