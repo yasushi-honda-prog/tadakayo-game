@@ -1,15 +1,42 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-12 (sprite 浮き真因対応 + UX 文言修正)
+最終更新: 2026-05-12 (Phase 5-I: ScoreScreen UX + 看板 + collider 復活)
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `10236d8`)
-- **Phase 5 + 6 polish + Player ダンス + collider polish + sprite 浮き真因対応 + UX 文言修正 完了** ✅(2026-05-12)
+- **現在ブランチ**: `main`(同期済み、最新コミット `00783ad`)
+- **Phase 5 + 6 polish + Player ダンス + collider polish + sprite 浮き真因対応 + UX 文言修正 + ScoreScreen UX + 看板 + collider 復活 完了** ✅(2026-05-12)
 - **未マージ PR**: なし
+
+## 2026-05-12 セッション 3 成果 (Phase 5-I: ScoreScreen UX + 看板 + collider 復活)
+
+ユーザーから 2 件の報告を受けて 2 回の PR で対応:
+1. **スコア画面のボタンが押せない** → PR #39 で `exitPointerLock()` 追加 (不十分) → PR #40 で CSS の真因 (`pointer-events` 継承) を解決
+2. **立て看板に文字がない** → PR #39 で CanvasTexture + 自動フォント縮小で「タダスクの塔」を描画
+3. **オブジェクトすり抜け (中央モニュメント / 4 柱)** → PR #40 で Phase 5-G の装飾化を revert し collider 復活
+
+| PR | 内容 | 効果 |
+|---|---|---|
+| **#39** | ScoreScreen.show() で `document.exitPointerLock()` 呼び出し + タダスクの塔の立て看板に CanvasTexture テキスト | スコア画面で PointerLock 自動解除、看板に「タダスクの塔」表示 |
+| **#40** | `.score-screen { pointer-events: auto }` 追加 + 中央モニュメント・4 柱の collider 復活 | スコア画面ボタンクリック貫通の真因解消、すり抜け解消 |
+
+### PR #39 詳細
+- `src/ui/ScoreScreen.ts` `show()` 冒頭で `document.exitPointerLock()` を呼ぶ (PauseMenu は Esc 経由でブラウザが自動解除するが ScoreScreen は missionCleared から自動表示されるため明示的解除が必要)
+- `src/world/Village.ts` `buildTadasukuTower()` の看板を **BoxGeometry + multi-material** に置換 (±Z 2 面に CanvasTexture、残り 4 面は黄色単色)
+- `makeSignTexture()` ヘルパー: canvas 512×314 (看板物理 aspect 1.8/1.1 に合わせる)、`ctx.measureText` で内側幅に収まる最大フォントサイズを 96px から 4px 刻みで自動選択 → Noto Sans JP のロード前後でも文字がはみ出ない
+- `dispose()` で `material.map.dispose()` 追加 (texture リーク防止)
+
+### PR #40 詳細 (真因対応)
+- **ScoreScreen ボタン真因**: PR #39 の `exitPointerLock` だけでは不十分。実は親 `#ui-layer` が `pointer-events: none` を持ち、`.screen` クラスを持つ要素 (TitleScreen) や個別に `pointer-events: auto` を持つモーダル (`.pause-menu`, `.mission-panel`) だけが overlay 機能していた。`.score-screen` には `pointer-events` 設定がなく、クリックが背後の canvas に貫通していた。`.score-screen { pointer-events: auto }` 追加で解決
+- **collider 復活**: Phase 5-G で Issue #31 (Player が乗れる) 対応のため装飾化していた中央モニュメント (台座 + ピンクキューブ) と タダレク広場 4 隅の柱に `physics.addStaticCuboid` を復活。ユーザー判断「すり抜けは駄目 (上に乗れても良い)」に方針変更。Player sprite 浮きは PR #36 で解消済なので上に乗っても綺麗に立つ
+
+### 重要な学び (PR #39 → #40 の段階)
+1. **症状治療と真因対応を区別する**: PR #39 で `exitPointerLock` を入れたが、これは「Pointer Lock 中でクリックできない」症状の対処であって、`pointer-events` 継承で canvas に貫通する真因とは別。ユーザーから「まだ駄目」と再報告を受けて初めて真因 (CSS) を発見した。**最初に PauseMenu/MissionPanel との class 構造差分を確認していれば 1 回の PR で解決できた**
+2. **CSS の `pointer-events: none` 継承は overlay 設計で頻発する落とし穴**: 親 (`#ui-layer`) で全 UI クリックを通す設計にした場合、モーダル overlay は **必ず個別に `pointer-events: auto` を設定**する必要がある。新しいモーダルを追加する際のチェック項目に
+3. **decision-maker の方針変更を素直に受け入れる**: Phase 5-G で「Player が乗れる」回避のため collider を外したが、ユーザー判断で「すり抜けは駄目」に変わったら revert する。AI 側で「乗れる問題が再発するから」と説得しない (decision-maker の領分)
 
 ## 2026-05-12 セッション 2 成果 (Issue #31 真因対応 + UX)
 
