@@ -406,6 +406,13 @@ html, body {
   .hud-toast {
     animation: none;
   }
+  /* Stage 4 (codex review Medium): ScoreScreen 本体のフェードイン・ポップインも停止 */
+  .score-screen {
+    animation: none;
+  }
+  .score-card {
+    animation: none;
+  }
 }
 
 @keyframes toastPop {

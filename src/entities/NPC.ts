@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { UserMotion } from "../config/UserMotion";
 
 /**
  * NPC の状態遷移 (Phase 5-D):
@@ -113,16 +114,19 @@ export class NPC {
       }
     }
 
-    // glow 演出
+    // Stage 4 a11y (codex review Medium): prefers-reduced-motion 時は glow pulse と
+    // 上下浮遊を停止。interactable 状態は維持し、glow opacity は中間値 (0.4) で固定して
+    // 「話しかけられる」シグナルを残す。
+    const reduced = UserMotion.instance.prefersReduced;
     if (this.state === "interactable") {
-      this.glowMaterial.opacity = 0.32 + 0.18 * Math.sin(this.elapsed * 4.0);
+      this.glowMaterial.opacity = reduced ? 0.4 : 0.32 + 0.18 * Math.sin(this.elapsed * 4.0);
     } else {
       this.glowMaterial.opacity = 0;
     }
 
     // 軽い浮遊感 (キャラが「生きている」感じ)
     const baseY = this.spriteHeight / 2;
-    this.sprite.position.y = baseY + Math.sin(this.elapsed * 1.6) * 0.04;
+    this.sprite.position.y = reduced ? baseY : baseY + Math.sin(this.elapsed * 1.6) * 0.04;
   }
 
   isInteractable(): boolean {

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type RAPIER from "@dimforge/rapier3d-compat";
 import { PLAYER } from "../config/gameConfig";
+import { UserMotion } from "../config/UserMotion";
 import type { PhysicsWorld } from "../core/PhysicsWorld";
 import type { InputBus } from "../input/InputBus";
 import type { ThirdPersonCamera } from "./Camera";
@@ -236,12 +237,16 @@ export class Player {
     this.applyDirectionalSprite(moveLen, camera.getYaw());
 
     // sprite 縦位置: ダンス中は専用バウンス、それ以外は走り中の足音的な微振動 (接地時のみ)
+    // Stage 4 a11y (codex review High): prefers-reduced-motion 時は両方の動きを停止。
+    // ダンス state 自体は維持 (テクスチャは startDance() / applyDirectionalSprite で時間依存
+    // ローテだが、reduced 時は applyDirectionalSprite 側で front 固定化する)。
     const baseY =
       PLAYER.SPRITE_SIZE.height / 2 - (PLAYER.COLLIDER.halfHeight + PLAYER.COLLIDER.radius);
-    if (dancing) {
+    const reduced = UserMotion.instance.prefersReduced;
+    if (dancing && !reduced) {
       const bounce = Math.max(0, Math.sin(this.danceElapsed * DANCE_BOUNCE_RATE)) * DANCE_BOUNCE_AMP;
       this.sprite.position.y = baseY + bounce;
-    } else if (this.grounded && moveLen > 0.05) {
+    } else if (this.grounded && moveLen > 0.05 && !reduced) {
       this.sprite.position.y = baseY + Math.sin(performance.now() * 0.018) * 0.04;
     } else {
       this.sprite.position.y = baseY;
@@ -250,9 +255,13 @@ export class Player {
 
   /** カメラとキャラの相対角度から方向を判定し、テクスチャ + 反転を反映 */
   private applyDirectionalSprite(moveLen: number, cameraYaw: number): void {
-    // ダンス中は方向判定をバイパスし、専用 4 枚を時間ベースでローテ
+    // ダンス中は方向判定をバイパスし、専用 4 枚を時間ベースでローテ。
+    // Stage 4 a11y (codex review High): prefers-reduced-motion 時はテクスチャ切替も
+    // 停止して dance-1 (front-dance-1) 固定 = 動きを完全に最小化する。
     if (this.isDancing()) {
-      const idx = Math.floor(this.danceElapsed / DANCE_FRAME_SEC) % this.danceTextures.length;
+      const idx = UserMotion.instance.prefersReduced
+        ? 0
+        : Math.floor(this.danceElapsed / DANCE_FRAME_SEC) % this.danceTextures.length;
       if (idx !== this.danceTextureIndex) {
         this.danceTextureIndex = idx;
         this.material.map = this.danceTextures[idx];
