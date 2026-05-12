@@ -41,7 +41,7 @@ html, body {
   width: 100%;
   height: 100%;
   display: block;
-  cursor: crosshair;
+  cursor: none;
 }
 
 #ui-layer {
@@ -51,7 +51,7 @@ html, body {
 }
 
 /* screen はモーダル UI なので auto。hud は表示のみで canvas へのクリックを邪魔しないよう none */
-.screen { pointer-events: auto; }
+.screen { pointer-events: auto; cursor: default; }
 .hud { pointer-events: none; }
 
 .screen.hidden, .hud.hidden {
