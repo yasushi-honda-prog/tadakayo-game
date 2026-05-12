@@ -37,27 +37,46 @@
   - #52 タイトル画面: `Phase 5-F プロトタイプ` バッジ削除 (本番仕様化) + 操作説明を `<kbd>` + `<dl>` の「キー → やること」対応表化 (デスクトップ 2 列 / モバイル 1 列スタック)
   - #53 (hotfix) 噴水の水しぶき (InstancedMesh) が特定視点で全消失する問題を `droplets.frustumCulled = false` で修正。**真因**: Three.js の InstancedMesh bounding sphere は「メッシュ local origin + geometry の bounding sphere」で計算されるが、`droplets` はシーン Group のローカル原点 (0,0,0) に追加されたまま per-instance で `fountainCenter (cx=18, _, cz=4)` 周辺に粒子を描画するため、カメラから world (0,0,0) が frustum 外に出る角度で全粒子が一括 cull される false-positive。`waterColumn` は通常 Mesh で position が `(cx, 1.75, cz)` のため bounding sphere が正しく付随し影響なし → 「水柱は見えるのに粒子だけ消える」症状の説明
   - #54 HUD 上部ピル + ポーズ画面の操作説明を PR #52 と同じ `<kbd>` 対応表に統一 (`.hint-section` / `.hint-list` / `kbd` CSS をゲーム全体で共有、ゲーム内 UI の操作説明表現が 3 箇所で完全統一)
-- 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
-- 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント すべて稼働
-- **残課題**:
+- **Phase 6 ブラッシュアップ Stage 1-4 完了** ✅ (2026-05-13、Stage 1 〜 Stage 4 = PR #56 〜 #59):
+  - Stage 1 #56: 目標コンパス HUD (foreground mission の方向矢印 + 距離、Camera fwd/right 内積で画面相対角を計算、aria-label 8 方位、0.5° transform キャッシュ)
+  - Stage 2 #57: UserSettings シングルトン (感度 X/Y、Y軸反転、BGM/SE 個別音量、設定リセット、localStorage 永続化 + safe accessors)
+  - Stage 3 #58: **Firestore + Anonymous Auth 永続化 + Firebase Hosting 移行** (ADR-2026-05-13 参照、公開 URL 変更)
+  - Stage 4 #59: prefers-reduced-motion 対応 (UserMotion singleton、6 entity + ScoreScreen + toast 全対応) + プレイ開始時 welcome toast (4.5 秒、目標誘導)
+- 本番デプロイ済み: **https://tadakayo-game-yh.web.app/** (Firebase Hosting、Stage 3 以降)
+- 旧 URL `https://yasushi-honda-prog.github.io/tadakayo-game/` は Stage 3 マージ前のコンテンツで凍結中、redirect 化は別 PR
+- 全 5 ミッション完走 + スコア画面 + 自己ベスト + 累計クリア + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント + コンパス + 設定 + a11y + welcome 演出 すべて稼働
+- **残課題** (別 PR、優先度順):
+  - 旧 GitHub Pages URL の HTML redirect 化
+  - Firebase Hosting 自動デプロイ CI (Service Account 認証、要明示承認)
+  - Collectible.ts の y 計算修正 (既存 bug、影響軽微)
   - Issue #31 (`postponed` ラベル付与済、スコープ 3 のみ: 段差エッジ snap 失敗、P2)
+  - Anonymous UID 永続性の docs 明記 (ブラウザクリア / 別端末で失われる仕様)
   - Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
-  - sprite 輪郭の縮小エイリアシング (PR #45 mipmap が #48 で revert された副作用、品質トレードオフとして許容)。再度 mipmap 化するなら asset pipeline に「RGB bleed (透明領域 RGB を周辺色で埋める) + alpha floor clamp + alphaTest」をセットで実装する必要あり (codex セカンドオピニオン根拠)
-- ハンドオフ: `docs/handoff/LATEST.md` 参照
+  - sprite 輪郭の縮小エイリアシング (PR #45 mipmap が #48 で revert された副作用、品質トレードオフとして許容)。再度 mipmap 化するなら asset pipeline に「RGB bleed + alpha floor clamp + alphaTest」をセットで実装する必要あり
+- ハンドオフ: `docs/handoff/LATEST.md` 参照 (Phase 5 系の旧履歴は `docs/handoff/2026-05-12_phase5-L.md`)
 
-## 公開 URL と base path
+## 公開 URL と Firebase インフラ (Stage 3 以降)
 
 - リポジトリ: `yasushi-honda-prog/tadakayo-game` (public)
-- 公開 URL: `https://yasushi-honda-prog.github.io/tadakayo-game/`
-- `vite.config.ts` の `base: "/tadakayo-game/"` を変更すると 404 になるので、リポジトリ名と一致させる
+- 新公開 URL (現用): `https://tadakayo-game-yh.web.app/` (Firebase Hosting)
+- 旧公開 URL (凍結): `https://yasushi-honda-prog.github.io/tadakayo-game/` (Stage 3 マージ前で停止、redirect 化は別 PR)
+- Firebase プロジェクト: `tadakayo-game-yh` (法人アカウント `yasushi-honda@tadakayo.jp`、organization `797660187808` 配下)
+- Firestore: `(default)` database、`asia-northeast1`、`gameRecords/{uid}` コレクション
+- Authentication: Anonymous Auth 有効化
+- `vite.config.ts` の `base: "/"` (Firebase Hosting ルート配信、`tadakayo-game/` prefix なし)
+- デプロイ: `firebase deploy --only hosting --project tadakayo-game-yh --account yasushi-honda@tadakayo.jp` (手動、CI 自動デプロイは別 PR)
 
-## アカウント / 認証
+## アカウント / 認証 (env-isolation 準拠)
 
 - GitHub アカウント: `yasushi-honda-prog`（global の `gh auth` の active と異なる可能性あり）
 - 認証は **`.envrc` の `GH_TOKEN`** でローカルに閉じる（direnv allow 済み）
 - グローバル `gh auth switch` は **しない**（global feedback_account_scope 準拠）
-- git identity も **`git config --local`** で `yasushi-honda-prog` 名義に閉じる
+- git identity も **`git config --local`** で `yasushi-honda-prog` 名義に閉じる + `.gitconfig.local` で宣言
   - email: `254105639+yasushi-honda-prog@users.noreply.github.com`
+- **Firebase / GCP** (Stage 3 以降): `yasushi-honda@tadakayo.jp` (法人アカウント) で `.envrc` 経由
+  - `CLOUDSDK_ACTIVE_CONFIG_NAME=tadakayo-game` (named config、グローバル ACTIVE 不変)
+  - `GCP_ACCOUNT="yasushi-honda@tadakayo.jp"` + `FIREBASE_PROJECT="tadakayo-game-yh"`
+  - firebase CLI コマンドは `--account yasushi-honda@tadakayo.jp` を都度指定
 
 ## 技術スタック
 
@@ -67,20 +86,29 @@
 | Rapier 3D (`@dimforge/rapier3d-compat`) | ✓ | 物理（重力、衝突、CharacterController） |
 | Vite 5 + TypeScript 5 | ✓ | ビルド/型 |
 | Noto Sans JP, Web Audio API | ✓ | フォント、音 |
+| **Firebase 12.13 (App + Auth + Firestore)** | ✓ | クラウド永続化 + 匿名認証 (Stage 3 以降) |
+| **Firebase Hosting** | ✓ | 本番配信 (Stage 3 以降、GitHub Pages から移行) |
 
-## ディレクトリ構成 (Phase 5-F 完了時点)
+## ディレクトリ構成 (Phase 6 完了時点)
 
 ```
 src/
-├── core/         # PhysicsWorld, Game (メインループ + 全 entity + ScoreScreen + SkyDome)
-├── entities/     # Player, Camera, Collectible (専用地面影付), NPC, DanceNpc (5-F 装飾)
-├── world/        # Village (5-B + 5-F 噴水アニメ + 旗揺れ)
-├── input/        # InputBus, KeyboardMouseInput (PointerLock+drag fallback), TouchInput, detectInput
-├── ui/           # TitleScreen, HUD, MissionPanel, DialogBox, PauseMenu, ScoreScreen (5-F), MobileControls
+├── core/         # PhysicsWorld, Game (メインループ + Stage 1 コンパス + Stage 4 welcome toast)
+├── entities/     # Player, Camera (Stage 2 感度), Collectible, NPC, DanceNpc (Stage 4 reduced-motion)
+├── world/        # Village (Stage 4 噴水・旗 reduced-motion)
+├── input/        # InputBus, KeyboardMouseInput, TouchInput, detectInput
+├── ui/           # TitleScreen, HUD (Stage 1 コンパス, Stage 4 welcome), MissionPanel, DialogBox,
+│                 #   PauseMenu (Stage 2 設定 UI), ScoreScreen (Stage 3 自己ベスト), MobileControls
 ├── missions/     # Mission, MissionManager, missions/{Collect,Reach,Talk,Dance,Meta}Mission
-├── audio/        # AudioManager (kenney.nl OGG decode + BGM ループ + SE 6 種)
-├── config/       # brand.ts, gameConfig.ts (PHYSICS / PLAYER / CAMERA)
+├── audio/        # AudioManager (Stage 2 BGM/SE 個別音量)
+├── config/       # brand.ts, gameConfig.ts (PHYSICS/PLAYER/CAMERA),
+│                 #   UserSettings.ts (Stage 2), UserMotion.ts (Stage 4),
+│                 #   GameRecord.ts (Stage 3, Firestore+localStorage hybrid),
+│                 #   firebase.ts (Stage 3, FirebaseService)
 └── styles/main.css
+firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage 3
+.env.example / .env.local (gitignore)                                    # Stage 3 Vite env
+.gitconfig.local                                                         # env-isolation 準拠
 ```
 
 ## アセット (Phase 5-G 完了時点)
