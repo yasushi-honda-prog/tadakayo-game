@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from "../config/gameConfig";
+import { UserSettings } from "../config/UserSettings";
 
 /**
  * SE/BGM の再生管理。
@@ -46,7 +47,11 @@ export class AudioManager {
   /** startBgm() が bgmBuffer 未 decode で空振りした時、preloadAll 完了後に自動再生するためのフラグ */
   private bgmPendingStart = false;
 
+  /** Stage 2: UserSettings.onChange の解除関数 (dispose 時に呼ぶ) */
+  private settingsUnsub: (() => void) | null = null;
+
   constructor() {
+    // mute は旧キーを直接読む (UserSettings も同じキーを参照するため両者は一致)
     const stored = localStorage.getItem(STORAGE_KEYS.AUDIO_MUTED);
     this.muted = stored === "1";
   }
@@ -64,15 +69,27 @@ export class AudioManager {
     this.masterGain.gain.value = this.muted ? 0 : 1.0;
     this.masterGain.connect(this.ctx.destination);
 
+    // Stage 2: UserSettings の bgmVolume / seVolume を BGM_GAIN / SE_GAIN に乗じる
+    const s = UserSettings.instance.current;
     // BGM 専用ゲイン (mute と独立に音量を BGM_GAIN まで下げる)
     this.bgmGain = this.ctx.createGain();
-    this.bgmGain.gain.value = BGM_GAIN;
+    this.bgmGain.gain.value = BGM_GAIN * s.bgmVolume;
     this.bgmGain.connect(this.masterGain);
 
     // ダンス BGM 専用ゲイン (ducking の対象外、独立に再生制御)
     this.danceBgmGain = this.ctx.createGain();
-    this.danceBgmGain.gain.value = DANCE_BGM_GAIN;
+    this.danceBgmGain.gain.value = DANCE_BGM_GAIN * s.bgmVolume;
     this.danceBgmGain.connect(this.masterGain);
+
+    // Stage 2: 設定変化を BGM / ダンス BGM gain にリアルタイム反映 (SE は playBuffer 時に都度読む)
+    // mute も同期: 設定パネルから別経路で muted が変わった場合に master gain を追従させる
+    this.settingsUnsub = UserSettings.instance.onChange((ns) => {
+      this.applyVolumeSettings(ns.bgmVolume);
+      if (ns.muted !== this.muted) {
+        this.muted = ns.muted;
+        if (this.masterGain) this.masterGain.gain.value = ns.muted ? 0 : 1.0;
+      }
+    });
 
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
@@ -80,10 +97,32 @@ export class AudioManager {
     void this.preloadAll();
   }
 
+  /** Stage 2: BGM 系 gain に bgmVolume 係数を反映 (ducking 中は VILLAGE_DUCK_GAIN を優先) */
+  private applyVolumeSettings(bgmVolume: number): void {
+    if (!this.ctx) return;
+    const ducking = this.danceBgmSource !== null;
+    if (this.bgmGain) {
+      const target = ducking ? VILLAGE_DUCK_GAIN * bgmVolume : BGM_GAIN * bgmVolume;
+      this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.bgmGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.05);
+    }
+    if (this.danceBgmGain) {
+      this.danceBgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.danceBgmGain.gain.setTargetAtTime(
+        DANCE_BGM_GAIN * bgmVolume,
+        this.ctx.currentTime,
+        0.05,
+      );
+    }
+  }
+
   setMuted(muted: boolean): void {
     this.muted = muted;
     if (this.masterGain) this.masterGain.gain.value = muted ? 0 : 1.0;
-    localStorage.setItem(STORAGE_KEYS.AUDIO_MUTED, muted ? "1" : "0");
+    // Stage 2: localStorage 書き込みは UserSettings 経由に一元化 (STORAGE_KEYS.AUDIO_MUTED へ
+    // 旧キー互換で同じ値が書かれる)。直接 localStorage.setItem しないことで、設定パネルの
+    // スライダー値と整合が崩れるのを防ぐ。
+    UserSettings.instance.update({ muted });
   }
 
   isMuted(): boolean {
@@ -135,7 +174,9 @@ export class AudioManager {
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     const g = this.ctx.createGain();
-    g.gain.value = SE_GAIN * gainScale;
+    // Stage 2: SE 音量倍率 (UserSettings.seVolume) を再生時に都度読む。一過性 source
+    // のため onChange 監視不要、最新値を都度反映するだけで十分。
+    g.gain.value = SE_GAIN * gainScale * UserSettings.instance.current.seVolume;
     src.connect(g).connect(this.masterGain);
     src.start(0);
   }
@@ -219,10 +260,11 @@ export class AudioManager {
     src.start(0);
     this.danceBgmSource = src;
 
-    // ducking: 村 BGM をほぼ消す
+    // ducking: 村 BGM をほぼ消す (Stage 2: bgmVolume 倍率を反映)
     if (this.bgmGain) {
+      const bgmVol = UserSettings.instance.current.bgmVolume;
       this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.bgmGain.gain.setTargetAtTime(VILLAGE_DUCK_GAIN, this.ctx.currentTime, 0.1);
+      this.bgmGain.gain.setTargetAtTime(VILLAGE_DUCK_GAIN * bgmVol, this.ctx.currentTime, 0.1);
     }
   }
 
@@ -232,14 +274,19 @@ export class AudioManager {
       this.danceBgmSource.disconnect();
       this.danceBgmSource = null;
     }
-    // 村 BGM を元の音量に復帰
+    // 村 BGM を元の音量に復帰 (Stage 2: bgmVolume 倍率を反映)
     if (this.ctx && this.bgmGain) {
+      const bgmVol = UserSettings.instance.current.bgmVolume;
       this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.bgmGain.gain.setTargetAtTime(BGM_GAIN, this.ctx.currentTime, 0.2);
+      this.bgmGain.gain.setTargetAtTime(BGM_GAIN * bgmVol, this.ctx.currentTime, 0.2);
     }
   }
 
   dispose(): void {
+    if (this.settingsUnsub) {
+      this.settingsUnsub();
+      this.settingsUnsub = null;
+    }
     this.stopBgm();
     this.stopDanceBgm();
     if (this.ctx) {

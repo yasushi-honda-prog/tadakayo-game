@@ -774,6 +774,114 @@ html, body {
   display: none !important;
 }
 
+/* Stage 2: 設定セクション (pause-menu 内、操作説明と同じ畳み込みパターン) */
+.pause-settings-detail {
+  background: var(--brand-pink);
+  padding: 12px 14px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--brand-black);
+}
+
+.pause-settings-detail.hidden {
+  display: none !important;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(86px, max-content) 1fr minmax(48px, max-content);
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-row-check {
+  grid-template-columns: 1fr;
+}
+
+.settings-label {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.settings-label-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.settings-label-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand-primary);
+  cursor: pointer;
+}
+
+.settings-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  border: 2px solid var(--brand-white);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.settings-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  border: 2px solid var(--brand-white);
+  cursor: pointer;
+}
+
+.settings-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-weight: 700;
+  color: var(--brand-primary);
+  font-size: 12px;
+}
+
+.settings-reset-btn {
+  margin-top: 4px;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-color: rgba(0, 0, 0, 0.25);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+@media (max-width: 768px) {
+  .settings-row {
+    grid-template-columns: minmax(72px, max-content) 1fr minmax(44px, max-content);
+    gap: 8px;
+    font-size: 12px;
+  }
+  .pause-settings-detail {
+    font-size: 12px;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+}
+
 .pause-menu-hint {
   margin: 4px 0 0;
   font-size: 11px;
