@@ -27,20 +27,29 @@ export class UserMotion {
   }
 
   static _reset(): void {
-    this._instance = null;
+    if (this._instance !== null) {
+      this._instance.dispose();
+      this._instance = null;
+    }
   }
 
   private _prefersReduced = false;
   private listeners: Listener[] = [];
+  private mql: MediaQueryList | null = null;
+  // クラスフィールド arrow 初期化で `this` が確実に bind され、
+  // dispose 時に同一参照で removeEventListener が成立する。
+  private readonly boundHandleChange = (e: MediaQueryListEvent): void =>
+    this.handleChange(e.matches);
 
   private constructor() {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
       return;
     }
     const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+    this.mql = mql;
     this._prefersReduced = mql.matches;
     // ランタイム変更 (OS 設定を切り替えたら即座に反映)
-    mql.addEventListener("change", (e) => this.handleChange(e.matches));
+    mql.addEventListener("change", this.boundHandleChange);
   }
 
   /** 現在の `prefers-reduced-motion: reduce` 検出状態 */
@@ -53,6 +62,19 @@ export class UserMotion {
     return () => {
       this.listeners = this.listeners.filter((l) => l !== fn);
     };
+  }
+
+  /**
+   * matchMedia の change listener と onChange listeners を解除する (test / HMR cleanup 用)。
+   * `UserMotion._reset()` 経由で呼ばれる。本番ランタイムではシングルトンを破棄しないため
+   * 通常は呼ばれないが、listener leak を構造的に防ぐために dispose 経路を用意。
+   */
+  dispose(): void {
+    if (this.mql !== null) {
+      this.mql.removeEventListener("change", this.boundHandleChange);
+      this.mql = null;
+    }
+    this.listeners = [];
   }
 
   private handleChange(reduced: boolean): void {
