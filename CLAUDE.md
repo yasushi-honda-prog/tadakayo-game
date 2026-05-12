@@ -14,9 +14,13 @@
 - **Phase 5-G Player ダンス + collider polish 完了** ✅ (2026-05-12):
   - #30 Player ダンス機能 (専用 sprite + EDM BGM + 何度でも踊れる)
   - #32 柱/木 collider 修正、#33 中央モニュメント装飾化 (Issue #31 スコープ 1+2+追加)
+- **Phase 5-H Issue #31 真因対応 + UX 文言修正 完了** ✅ (2026-05-12):
+  - #36 Player sprite が常に capsule 足元から 0.85m 浮く問題を修正 (Issue #31 真因、ユーザー報告「カメラ視点切替で浮く」の根本原因)
+  - #37 操作ヒントの「視点ロック」表現を「クリックでマウス視点変更 ON / Esc で OFF」「矢印キーで移動」に変更
+  - #35 close (噴水・ベンチ装飾化、ユーザー判断「乗れても良い」)
 - 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
 - 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント すべて稼働
-- **残課題**: Issue #31 OPEN (段差エッジで capsule が浮く Rapier KCC 挙動、P2、本番様子見)、Rapier 0.20+ init() deprecation 再評価
+- **残課題**: Issue #31 OPEN (スコープ 3 のみ: 段差エッジ snap 失敗、本人 postpone 宣言済 P2)、Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
 - ハンドオフ: `docs/handoff/LATEST.md` 参照
 
 ## 公開 URL と base path
