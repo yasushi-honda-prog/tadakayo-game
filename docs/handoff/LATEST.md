@@ -92,12 +92,13 @@ firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage
 
 | # | 項目 | 重要度 | 備考 |
 |---|---|---|---|
-| 1 | **Firebase Hosting 自動デプロイ CI** | 中 | Service Account 作成 (要明示承認) + GitHub Secrets 登録 + `FirebaseExtended/action-hosting-deploy` を `.github/workflows/firebase-hosting.yml` で記述 |
-| 3 | **Collectible.ts の y 計算修正** | 低 | codex Stage 4 で指摘された既存 bug (床上ハートが余分に 0.15m 高浮遊)。視覚影響軽微で本番運用許容範囲 |
-| 4 | **Issue #31 (段差 snap 失敗)** | 低 | `postponed` ラベル付き、ユーザー明示指示時のみ着手 |
-| 5 | **Anonymous UID 永続性のドキュメント化** | 低 | ブラウザクリア / 別端末では記録に戻れない仕様を README / docs に明記 (codex Stage 3 Low #4) |
-| 6 | **UserMotion の matchMedia change listener 解除** | 低 | singleton 実害なし、HMR/test 時の cleanup を整える程度 (codex Stage 4 Low) |
-| 7 | **Firebase Firestore のバックアップ (PITR)** | 低 | プロジェクト規模上必須ではないが、規模拡大時に検討 |
+| 1 | **Collectible.ts の y 計算修正** | 低 | codex Stage 4 で指摘された既存 bug (床上ハートが余分に 0.15m 高浮遊)。視覚影響軽微で本番運用許容範囲 |
+| 2 | **Issue #31 (段差 snap 失敗)** | 低 | `postponed` ラベル付き、ユーザー明示指示時のみ着手 |
+| 3 | **Anonymous UID 永続性のドキュメント化** | 低 | ブラウザクリア / 別端末では記録に戻れない仕様を README / docs に明記 (codex Stage 3 Low #4) |
+| 4 | **UserMotion の matchMedia change listener 解除** | 低 | singleton 実害なし、HMR/test 時の cleanup を整える程度 (codex Stage 4 Low) |
+| 5 | **Firebase Firestore のバックアップ (PITR)** | 低 | プロジェクト規模上必須ではないが、規模拡大時に検討 |
+| 6 | **PR preview channel 対応** | 低 | `firebase-hosting.yml` を PR open 時にも起動して preview URL を PR コメントに出す。外部 fork PR の secrets 不可制約と要件整理が必要 |
+| 7 | **Workload Identity Federation 移行** | 低 | 現状 SA JSON key で運用。ismap 準拠強化のため WIF へ移行 (`google-github-actions/auth@v2` の workload_identity_provider に置換) |
 
 ## 次セッションで最初にやること
 
@@ -109,7 +110,7 @@ firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage
    - タイトル → スタート → welcome toast (4.5 秒) → コンパス HUD「DXの種 4m」
    - ポーズメニュー → 設定 ▾ → 感度・音量スライダー
    - ScoreScreen (5 mission 全クリア時) → 自己ベスト・累計クリア表示
-3. 残課題を着手する場合は上記表 #1-6 から優先度順に選択
+3. 残課題を着手する場合は上記表 #1-7 から優先度順に選択 (現状すべて低優先度)
 4. 不明な場合は `/catchup` で最新 Issue / PR / handoff を再確認
 
 ## 公開 URL とデプロイ運用
@@ -119,7 +120,9 @@ firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage
 | 新公開 URL (Firebase Hosting) | https://tadakayo-game-yh.web.app/ |
 | Firebase プロジェクト ID | `tadakayo-game-yh` |
 | 法人アカウント | `yasushi-honda@tadakayo.jp` (gcloud / firebase CLI 両方に追加済) |
-| デプロイ運用 | 手動 `firebase deploy --only hosting --project tadakayo-game-yh --account yasushi-honda@tadakayo.jp` (CI 自動デプロイは別 PR で整備) |
+| デプロイ運用 | **main push → `firebase-hosting.yml` で自動 deploy** (Stage 4 / 2026-05-13)。手動運用は `firebase deploy --only hosting --project tadakayo-game-yh --account yasushi-honda@tadakayo.jp` で引き続き可能 |
+| 自動デプロイ用 SA | `github-actions-hosting@tadakayo-game-yh.iam.gserviceaccount.com` (権限: `roles/firebasehosting.admin` のみ、最小権限) |
+| GitHub Secrets | `FIREBASE_SERVICE_ACCOUNT_TADAKAYO_GAME_YH` (SA JSON key) + `VITE_FIREBASE_*` 6 件 (`.env.local` と同じ値) |
 | Firestore セキュリティルール deploy | `firebase deploy --only firestore:rules --project tadakayo-game-yh` |
 | Anonymous Auth 有効化 | Console GUI 経由 (CLI で Auth config 初期化不可、Admin API は Firebase 認証必要) |
 
