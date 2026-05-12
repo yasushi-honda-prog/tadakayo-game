@@ -22,9 +22,19 @@
   - #39 ScoreScreen 表示時の `exitPointerLock()` 追加 + タダスクの塔の立て看板に CanvasTexture でテキスト描画 (フォントサイズは `measureText` 自動縮小)
   - #40 ScoreScreen ボタンクリック貫通の **真因対応**: `.score-screen` に `pointer-events: auto` 追加 (親 `#ui-layer` の `pointer-events: none` 継承で canvas に貫通していた、PauseMenu / MissionPanel と同パターン)
   - #40 中央モニュメント (台座 + ピンクキューブ) と タダレク広場 4 隅の柱の collider 復活 (ユーザー判断「すり抜けは駄目 (乗れても良い)」、PR #36 で sprite 浮きが解消済のため許容)
+- **Phase 5-J UI / 輪郭品質改善 + sprite 不可視 hotfix 完了** ✅ (2026-05-12 セッション 4、6 PR):
+  - #43 canvas 上の十字カーソル (`cursor: crosshair`) を非表示化 (`cursor: none` + `.screen { cursor: default }`)
+  - #44 PNG 後処理 `scripts/clean-white-halo.py` 追加: alpha=0 隣接 8px 以内のほぼ白ピクセル (RGB>=200 & gray) を透明化、21 PNG (3-9% 削減)
+  - #45 sprite テクスチャに mipmap (`LinearMipmapLinearFilter` + `generateMipmaps=true`) 適用 → 縮小エイリアシング除去 → **#48 で sprite 側 revert (本番不具合のため)**
+  - #46 PNG 後処理 `scripts/soften-alpha.py` 追加: 22 PNG の alpha を Gaussian σ=0.6 でぼかし、AI 線画の折れ線ジャギーをソフト化
+  - #47 タダスクの塔の看板柱が看板を 0.55m 貫通して Z-fighting (看板テクスチャに細い縦線) → 柱を看板下面 (y=0.85) で止める
+  - **#48 sprite 不可視 hotfix**: ユーザー報告「Player + NPC + DanceNpc すべて表示されない」(dev / Playwright Chromium では正常、ユーザー環境のみ NG) → codex セカンドオピニオン → PR #45 を sprite 側 revert (LinearFilter 戻し + generateMipmaps=false 明示) + SpriteMaterial に `alphaTest: 0.01` 追加。**仮説**: PR #45 mipmap completeness 違反 + PR #46 で生まれた alpha=1-10 極小値が mipmap 縮小で更に薄まり特定 GPU で完全透明化
 - 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
 - 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント すべて稼働
-- **残課題**: Issue #31 OPEN (スコープ 3 のみ: 段差エッジ snap 失敗、本人 postpone 宣言済 P2)、Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
+- **残課題**:
+  - Issue #31 (`postponed` ラベル付与済、スコープ 3 のみ: 段差エッジ snap 失敗、P2)
+  - Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
+  - sprite 輪郭の縮小エイリアシング (PR #45 mipmap が #48 で revert された副作用、品質トレードオフとして許容)。再度 mipmap 化するなら asset pipeline に「RGB bleed (透明領域 RGB を周辺色で埋める) + alpha floor clamp + alphaTest」をセットで実装する必要あり (codex セカンドオピニオン根拠)
 - ハンドオフ: `docs/handoff/LATEST.md` 参照
 
 ## 公開 URL と base path
