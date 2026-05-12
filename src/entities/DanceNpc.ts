@@ -41,8 +41,9 @@ export class DanceNpc {
     this.textures = names.map((name) => {
       const t = loader.load(`${base}assets/images/${name}.png`);
       t.colorSpace = THREE.SRGBColorSpace;
-      t.minFilter = THREE.LinearFilter;
+      t.minFilter = THREE.LinearMipmapLinearFilter;
       t.magFilter = THREE.LinearFilter;
+      t.generateMipmaps = true;
       return t;
     });
 

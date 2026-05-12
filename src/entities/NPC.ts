@@ -56,8 +56,9 @@ export class NPC {
     const base = import.meta.env.BASE_URL;
     this.texture = loader.load(`${base}assets/images/${args.spriteName}.png`);
     this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.minFilter = THREE.LinearFilter;
+    this.texture.minFilter = THREE.LinearMipmapLinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
+    this.texture.generateMipmaps = true;
 
     this.material = new THREE.SpriteMaterial({
       map: this.texture,
