@@ -63,8 +63,13 @@ export class GameRecord {
   private firebaseService: {
     uid: string | null;
     fetchRecord(uid: string): Promise<GameRecordValues | null>;
-    upsertRecord(uid: string, v: GameRecordValues): Promise<boolean>;
+    setRecord(uid: string, v: GameRecordValues, isFirstWrite: boolean): Promise<boolean>;
   } | null = null;
+  /**
+   * codex Stage 3 review #1 対応: 初回 createdAt 書込が必要なら true。
+   * initCloud で確定し、最初の setRecord 完了後に false に切り替える。
+   */
+  private firstCloudWrite = true;
 
   private constructor() {
     // 同期: localStorage から即時復元 (UI が即値を取れるように)
@@ -139,9 +144,9 @@ export class GameRecord {
       this.firebaseUid = svc.uid;
       const cloud = await svc.fetchRecord(svc.uid);
       if (cloud !== null) {
-        // クラウド優先マージ: ベスト記録は最良値、playCount はクラウドの方が信頼できる
-        // (別端末でプレイしたなら累計に含めるべき)。但しローカルが新規記録した直後の
-        // タイミングで上書きを避けるため、ベスト値が異なる場合のみ merge して通知
+        // クラウド優先マージ: ベスト記録は最良値、playCount は max (codex Low #3 で議論)。
+        // codex review #1: cloud が存在する = 初回ではないので firstCloudWrite=false
+        this.firstCloudWrite = false;
         const merged: GameRecordValues = {
           bestTimeSec: pickBestTime(this.values.bestTimeSec, cloud.bestTimeSec),
           bestStars: Math.max(this.values.bestStars, cloud.bestStars),
@@ -152,14 +157,17 @@ export class GameRecord {
           this.persist(merged);
           for (const l of this.listeners) l(merged);
         }
-        // 万一クラウド側が古ければ merged で更新
+        // 万一クラウド側が古ければ merged で更新 (createdAt は触らない)
         if (!recordsEqual(merged, cloud)) {
-          await svc.upsertRecord(svc.uid, merged);
+          await svc.setRecord(svc.uid, merged, false);
         }
       } else if (this.values.playCount > 0) {
-        // クラウドに記録なし + ローカルに記録あり → 初回マイグレート
-        await svc.upsertRecord(svc.uid, this.values);
+        // クラウドに記録なし + ローカルに記録あり → 初回マイグレート (createdAt 含めて書く)
+        const ok = await svc.setRecord(svc.uid, this.values, true);
+        if (ok) this.firstCloudWrite = false;
       }
+      // playCount === 0 のケース: cloud=null かつ local も空。
+      // 最初の recordPlay → upsertCloud で初回 create される (firstCloudWrite=true のまま)
     } catch (e) {
       console.warn("[GameRecord] cloud init failed, using localStorage only:", e);
     }
@@ -167,7 +175,9 @@ export class GameRecord {
 
   private async upsertCloud(): Promise<void> {
     if (this.firebaseService === null || this.firebaseUid === null) return;
-    await this.firebaseService.upsertRecord(this.firebaseUid, this.values);
+    const isFirst = this.firstCloudWrite;
+    const ok = await this.firebaseService.setRecord(this.firebaseUid, this.values, isFirst);
+    if (ok && isFirst) this.firstCloudWrite = false;
   }
 
   private load(): GameRecordValues {

@@ -162,26 +162,32 @@ export class FirebaseService {
   /**
    * `gameRecords/{uid}` ドキュメントを upsert (merge:true)。
    * 失敗時は false を返し、ゲーム本体は継続。
+   *
+   * codex Stage 3 review #1 対応:
+   * 旧実装は createdAt: serverTimestamp() を毎回送って既存値を上書きしていた。
+   * `isFirstWrite=true` のときだけ createdAt を含めることで、初回作成時のみ
+   * createdAt が書かれ、以降の更新では updatedAt のみ更新される。
    */
-  async upsertRecord(uid: string, v: GameRecordCloudValues): Promise<boolean> {
+  async setRecord(
+    uid: string,
+    v: GameRecordCloudValues,
+    isFirstWrite: boolean,
+  ): Promise<boolean> {
     try {
       const ref = doc(this.db, "gameRecords", uid);
-      await setDoc(
-        ref,
-        {
-          bestTimeSec: v.bestTimeSec,
-          bestStars: v.bestStars,
-          playCount: v.playCount,
-          updatedAt: serverTimestamp(),
-          // createdAt は存在しなければ新規作成、存在すれば変更しない (merge:true のため
-          // 既存ドキュメントの createdAt は保持される)
-          createdAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
+      const payload: Record<string, unknown> = {
+        bestTimeSec: v.bestTimeSec,
+        bestStars: v.bestStars,
+        playCount: v.playCount,
+        updatedAt: serverTimestamp(),
+      };
+      if (isFirstWrite) {
+        payload.createdAt = serverTimestamp();
+      }
+      await setDoc(ref, payload, { merge: true });
       return true;
     } catch (e) {
-      console.warn("[Firebase] upsertRecord 失敗:", e);
+      console.warn("[Firebase] setRecord 失敗:", e);
       return false;
     }
   }
