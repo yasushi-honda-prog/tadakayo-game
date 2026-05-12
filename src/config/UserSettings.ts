@@ -74,6 +74,9 @@ export class UserSettings {
 
   private constructor() {
     this.values = this.load();
+    // codex review #1 補強: load で clamp / fallback が発生した不正値を localStorage 側にも
+    // 反映させる (in-memory だけ正しい状態を残さず、次回起動も正常化されるようにする)。
+    this.persist(this.values);
   }
 
   /** 現在値の不変スナップショット (consumer は破壊しないこと) */
@@ -162,38 +165,93 @@ export class UserSettings {
 
   private load(): UserSettingsValues {
     // mute は旧キー (gameConfig.STORAGE_KEYS.AUDIO_MUTED) を継続使用 (後方互換)
-    const muted = localStorage.getItem(STORAGE_KEYS.AUDIO_MUTED) === "1";
+    const muted = safeGetItem(STORAGE_KEYS.AUDIO_MUTED) === "1";
+    // codex review #1 対応: 既存 storage に不正値 (例 bgmVolume=999) が入っていても
+    // load 時に clamp して安全な範囲に強制矯正する
     return {
-      sensitivityX: this.loadNumber("sensitivityX", DEFAULT_SETTINGS.sensitivityX),
-      sensitivityY: this.loadNumber("sensitivityY", DEFAULT_SETTINGS.sensitivityY),
+      sensitivityX: this.loadNumber(
+        "sensitivityX",
+        DEFAULT_SETTINGS.sensitivityX,
+        SETTINGS_LIMITS.sensitivityMin,
+        SETTINGS_LIMITS.sensitivityMax,
+      ),
+      sensitivityY: this.loadNumber(
+        "sensitivityY",
+        DEFAULT_SETTINGS.sensitivityY,
+        SETTINGS_LIMITS.sensitivityMin,
+        SETTINGS_LIMITS.sensitivityMax,
+      ),
       invertY: this.loadBool("invertY", DEFAULT_SETTINGS.invertY),
-      bgmVolume: this.loadNumber("bgmVolume", DEFAULT_SETTINGS.bgmVolume),
-      seVolume: this.loadNumber("seVolume", DEFAULT_SETTINGS.seVolume),
+      bgmVolume: this.loadNumber(
+        "bgmVolume",
+        DEFAULT_SETTINGS.bgmVolume,
+        SETTINGS_LIMITS.volumeMin,
+        SETTINGS_LIMITS.volumeMax,
+      ),
+      seVolume: this.loadNumber(
+        "seVolume",
+        DEFAULT_SETTINGS.seVolume,
+        SETTINGS_LIMITS.volumeMin,
+        SETTINGS_LIMITS.volumeMax,
+      ),
       muted,
     };
   }
 
-  private loadNumber(key: keyof UserSettingsValues, fallback: number): number {
-    const raw = localStorage.getItem(STORAGE_PREFIX + key);
+  private loadNumber(
+    key: keyof UserSettingsValues,
+    fallback: number,
+    min: number,
+    max: number,
+  ): number {
+    const raw = safeGetItem(STORAGE_PREFIX + key);
     if (raw === null) return fallback;
     const parsed = Number(raw);
     if (!Number.isFinite(parsed)) return fallback;
-    return parsed;
+    return this.clamp(parsed, min, max);
   }
 
   private loadBool(key: keyof UserSettingsValues, fallback: boolean): boolean {
-    const raw = localStorage.getItem(STORAGE_PREFIX + key);
+    const raw = safeGetItem(STORAGE_PREFIX + key);
     if (raw === null) return fallback;
     return raw === "1";
   }
 
   private persist(v: UserSettingsValues): void {
-    // mute は旧キー
-    localStorage.setItem(STORAGE_KEYS.AUDIO_MUTED, v.muted ? "1" : "0");
-    localStorage.setItem(STORAGE_PREFIX + "sensitivityX", String(v.sensitivityX));
-    localStorage.setItem(STORAGE_PREFIX + "sensitivityY", String(v.sensitivityY));
-    localStorage.setItem(STORAGE_PREFIX + "invertY", v.invertY ? "1" : "0");
-    localStorage.setItem(STORAGE_PREFIX + "bgmVolume", String(v.bgmVolume));
-    localStorage.setItem(STORAGE_PREFIX + "seVolume", String(v.seVolume));
+    // mute は旧キー、他は STORAGE_PREFIX を付ける
+    safeSetItem(STORAGE_KEYS.AUDIO_MUTED, v.muted ? "1" : "0");
+    safeSetItem(STORAGE_PREFIX + "sensitivityX", String(v.sensitivityX));
+    safeSetItem(STORAGE_PREFIX + "sensitivityY", String(v.sensitivityY));
+    safeSetItem(STORAGE_PREFIX + "invertY", v.invertY ? "1" : "0");
+    safeSetItem(STORAGE_PREFIX + "bgmVolume", String(v.bgmVolume));
+    safeSetItem(STORAGE_PREFIX + "seVolume", String(v.seVolume));
+  }
+}
+
+/**
+ * codex review #1 対応: localStorage アクセス全てを例外安全にする。
+ * - SSR / test 環境で `localStorage` undefined → null 返却
+ * - プライベートブラウジング / disabled storage → null 返却 (例外回避)
+ * - QuotaExceededError → 黙って無視 (設定の損失は許容、ゲーム継続を優先)
+ *
+ * 例外メッセージは console.warn でログ出力するが、ゲーム本体を止めない。
+ */
+function safeGetItem(key: string): string | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    return localStorage.getItem(key);
+  } catch (e) {
+    console.warn(`[UserSettings] localStorage.getItem(${key}) failed:`, e);
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(key, value);
+  } catch (e) {
+    // QuotaExceededError / SecurityError 等。設定永続化は諦め、in-memory のみ動作継続。
+    console.warn(`[UserSettings] localStorage.setItem(${key}) failed:`, e);
   }
 }

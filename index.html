@@ -180,17 +180,17 @@
             <h2>ポーズ</h2>
             <button id="pause-resume" class="primary-button" type="button">再開</button>
             <button id="pause-mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
-            <button id="pause-settings-toggle" class="mute-button" type="button">設定 ▾</button>
+            <button id="pause-settings-toggle" class="mute-button" type="button" aria-expanded="false" aria-controls="pause-settings-detail">設定 ▾</button>
             <div id="pause-settings-detail" class="pause-settings-detail hidden">
               <div class="settings-row">
                 <label class="settings-label" for="pause-sensitivity-x">マウス感度 X</label>
-                <input id="pause-sensitivity-x" class="settings-range" type="range" min="0.2" max="3" step="0.05" />
-                <span id="pause-sensitivity-x-value" class="settings-value">1.00x</span>
+                <input id="pause-sensitivity-x" class="settings-range" type="range" min="0.2" max="3" step="0.05" aria-valuetext="1.00倍" />
+                <span id="pause-sensitivity-x-value" class="settings-value" aria-hidden="true">1.00x</span>
               </div>
               <div class="settings-row">
                 <label class="settings-label" for="pause-sensitivity-y">マウス感度 Y</label>
-                <input id="pause-sensitivity-y" class="settings-range" type="range" min="0.2" max="3" step="0.05" />
-                <span id="pause-sensitivity-y-value" class="settings-value">1.00x</span>
+                <input id="pause-sensitivity-y" class="settings-range" type="range" min="0.2" max="3" step="0.05" aria-valuetext="1.00倍" />
+                <span id="pause-sensitivity-y-value" class="settings-value" aria-hidden="true">1.00x</span>
               </div>
               <div class="settings-row settings-row-check">
                 <label class="settings-label-check" for="pause-invert-y">
@@ -200,17 +200,17 @@
               </div>
               <div class="settings-row">
                 <label class="settings-label" for="pause-bgm-volume">BGM 音量</label>
-                <input id="pause-bgm-volume" class="settings-range" type="range" min="0" max="1" step="0.05" />
-                <span id="pause-bgm-volume-value" class="settings-value">100%</span>
+                <input id="pause-bgm-volume" class="settings-range" type="range" min="0" max="1" step="0.05" aria-valuetext="100パーセント" />
+                <span id="pause-bgm-volume-value" class="settings-value" aria-hidden="true">100%</span>
               </div>
               <div class="settings-row">
                 <label class="settings-label" for="pause-se-volume">効果音 音量</label>
-                <input id="pause-se-volume" class="settings-range" type="range" min="0" max="1" step="0.05" />
-                <span id="pause-se-volume-value" class="settings-value">100%</span>
+                <input id="pause-se-volume" class="settings-range" type="range" min="0" max="1" step="0.05" aria-valuetext="100パーセント" />
+                <span id="pause-se-volume-value" class="settings-value" aria-hidden="true">100%</span>
               </div>
               <button id="pause-settings-reset" class="mute-button settings-reset-btn" type="button">設定をデフォルトに戻す</button>
             </div>
-            <button id="pause-controls-toggle" class="mute-button" type="button">操作説明 ▾</button>
+            <button id="pause-controls-toggle" class="mute-button" type="button" aria-expanded="false" aria-controls="pause-controls-detail">操作説明 ▾</button>
             <div id="pause-controls-detail" class="pause-controls-detail hidden">
               <section class="hint-section">
                 <h3 class="hint-section-title">パソコン</h3>

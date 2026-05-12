@@ -186,8 +186,10 @@ export class PauseMenu {
     // 操作説明 / 設定 展開状態は閉じるたびに畳む (再開→ポーズで毎回開く挙動を避ける)
     this.controlsDetail.classList.add("hidden");
     this.controlsToggleBtn.textContent = "操作説明 ▾";
+    this.controlsToggleBtn.setAttribute("aria-expanded", "false");
     this.settingsDetail.classList.add("hidden");
     this.settingsToggleBtn.textContent = "設定 ▾";
+    this.settingsToggleBtn.setAttribute("aria-expanded", "false");
   }
 
   toggle(): void {
@@ -224,9 +226,11 @@ export class PauseMenu {
     if (isHidden) {
       this.controlsDetail.classList.remove("hidden");
       this.controlsToggleBtn.textContent = "操作説明 ▴";
+      this.controlsToggleBtn.setAttribute("aria-expanded", "true");
     } else {
       this.controlsDetail.classList.add("hidden");
       this.controlsToggleBtn.textContent = "操作説明 ▾";
+      this.controlsToggleBtn.setAttribute("aria-expanded", "false");
     }
   }
 
@@ -235,9 +239,11 @@ export class PauseMenu {
     if (isHidden) {
       this.settingsDetail.classList.remove("hidden");
       this.settingsToggleBtn.textContent = "設定 ▴";
+      this.settingsToggleBtn.setAttribute("aria-expanded", "true");
     } else {
       this.settingsDetail.classList.add("hidden");
       this.settingsToggleBtn.textContent = "設定 ▾";
+      this.settingsToggleBtn.setAttribute("aria-expanded", "false");
     }
   }
 
@@ -255,17 +261,27 @@ export class PauseMenu {
     UserSettings.instance.update({ [key]: v });
   }
 
-  /** UserSettings の現在値を UI コントロールへ反映 (初期化 + リセット時) */
+  /**
+   * UserSettings の現在値を UI コントロールへ反映 (初期化 + リセット時)。
+   * codex review #2 対応: range の `aria-valuetext` を「1.25倍」「80パーセント」等の
+   * 自然な日本語にして、スクリーンリーダーが「0.5」等の生値を読まないようにする。
+   */
   private syncSettingsUI(s: typeof DEFAULT_SETTINGS): void {
     this.sensXInput.value = String(s.sensitivityX);
     this.sensXValueEl.textContent = `${s.sensitivityX.toFixed(2)}x`;
+    this.sensXInput.setAttribute("aria-valuetext", `${s.sensitivityX.toFixed(2)}倍`);
     this.sensYInput.value = String(s.sensitivityY);
     this.sensYValueEl.textContent = `${s.sensitivityY.toFixed(2)}x`;
+    this.sensYInput.setAttribute("aria-valuetext", `${s.sensitivityY.toFixed(2)}倍`);
     this.invertYInput.checked = s.invertY;
     this.bgmVolInput.value = String(s.bgmVolume);
-    this.bgmVolValueEl.textContent = `${Math.round(s.bgmVolume * 100)}%`;
+    const bgmPct = Math.round(s.bgmVolume * 100);
+    this.bgmVolValueEl.textContent = `${bgmPct}%`;
+    this.bgmVolInput.setAttribute("aria-valuetext", `${bgmPct}パーセント`);
     this.seVolInput.value = String(s.seVolume);
-    this.seVolValueEl.textContent = `${Math.round(s.seVolume * 100)}%`;
+    const sePct = Math.round(s.seVolume * 100);
+    this.seVolValueEl.textContent = `${sePct}%`;
+    this.seVolInput.setAttribute("aria-valuetext", `${sePct}パーセント`);
   }
 
   private handleReset(): void {
