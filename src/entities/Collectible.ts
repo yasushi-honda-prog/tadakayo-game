@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { BRAND_HEX } from "../config/brand";
+import { UserMotion } from "../config/UserMotion";
 
 /**
  * Phase 5-C 用の収集アイテム「DXの種」（赤いハート）。
@@ -123,10 +124,18 @@ export class Collectible {
     }
   }
 
-  /** 浮遊 + 回転アニメ。Game.ts のレンダリングフレームから呼ぶ。 */
+  /**
+   * 浮遊 + 回転アニメ。Game.ts のレンダリングフレームから呼ぶ。
+   * Stage 4 a11y: `prefers-reduced-motion` 時は浮遊と回転を停止し、ハートを baseY 静止表示。
+   */
   animate(dt: number): void {
     if (this.collected) return;
     this.elapsed += dt;
+    if (UserMotion.instance.prefersReduced) {
+      // 静止位置 + 既存 rotation を維持 (Y 位置だけ baseY に固定)
+      this.mesh.position.y = this.baseY;
+      return;
+    }
     this.mesh.position.y = this.baseY + Math.sin(this.elapsed * FLOAT_SPEED) * FLOAT_AMPLITUDE;
     this.mesh.rotation.y += dt * ROT_SPEED;
   }

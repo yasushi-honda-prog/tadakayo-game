@@ -752,6 +752,12 @@ export class Game {
     // Phase 5-F: スタート時刻記録
     this.playStartMs = performance.now();
     this.elapsed = 0;
+    // Stage 4: オープニング演出 (画面上端のコンパスへの誘導)。4.5 秒で自動消滅。
+    this.hud.flashClear(
+      "ようこそ、タダカヨ村へ！　画面上の▲が次の目標を示します",
+      4500,
+      "welcome",
+    );
     // **contact shadow は無効化**: Player の object.position は physics capsule の center
     // (地面 +0.55m) のため、影 mesh が「キャラの腰〜頭の高さ」に空中固定されて表示される
     // 違和感があった (PR #20 後ユーザー実機報告)。sprite には既に fix-sprites.py で

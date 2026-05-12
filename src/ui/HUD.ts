@@ -35,7 +35,7 @@ export class HUD {
   private readonly compassArrowEl: HTMLElement;
   private readonly compassLabelEl: HTMLElement;
   private readonly compassDistanceEl: HTMLElement;
-  private toastTimer: number | null = null;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private lastCompassLabel = "";
   private lastCompassDistanceM = -1;
   /** 矢印 transform を 0.5 度単位でキャッシュし、毎フレーム DOM 書込を抑制 (codex review #3) */
@@ -176,12 +176,21 @@ export class HUD {
     return sectors[idx];
   }
 
-  flashClear(text: string, durationMs = 3000): void {
+  /**
+   * トースト表示。
+   * Stage 4 で `variant` 引数を追加: "clear" (既定、赤背景) と "welcome" (ピンク背景、
+   * 複数行対応) を切替。
+   */
+  flashClear(text: string, durationMs = 3000, variant: "clear" | "welcome" = "clear"): void {
     this.toastEl.textContent = text;
     this.toastEl.classList.remove("hidden");
+    // 既存 variant クラスをすべて除去してから付与 (連続呼出時の残留を防ぐ)
+    this.toastEl.classList.remove("welcome");
+    if (variant === "welcome") this.toastEl.classList.add("welcome");
     if (this.toastTimer !== null) clearTimeout(this.toastTimer);
-    this.toastTimer = window.setTimeout(() => {
+    this.toastTimer = setTimeout(() => {
       this.toastEl.classList.add("hidden");
+      this.toastEl.classList.remove("welcome");
       this.toastTimer = null;
     }, durationMs);
   }

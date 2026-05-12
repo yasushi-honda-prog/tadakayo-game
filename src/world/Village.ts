@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { PhysicsWorld } from "../core/PhysicsWorld";
 import { BRAND_HEX } from "../config/brand";
+import { UserMotion } from "../config/UserMotion";
 
 /**
  * タダカヨ村ステージ（Phase 5-B）。
@@ -94,6 +95,22 @@ export class Village {
    * + 旗の靡き (z 軸まわりの軽い揺れ)。loop から dt 渡しで毎フレーム呼ばれる前提。
    */
   animate(dt: number, elapsed: number): void {
+    // Stage 4 a11y: prefers-reduced-motion 時は噴水水柱と旗揺れと水しぶきの動的更新を停止
+    // (静止画として表示。水柱は基本スケール 1.0、旗は中立位置、水しぶきは hidden)。
+    const reduced = UserMotion.instance.prefersReduced;
+    if (reduced) {
+      if (this.waterColumn !== null) {
+        this.waterColumn.scale.y = 1.0;
+        this.waterColumn.position.y = 1.75; // baseY (1.0) + halfHeight (0.75) で底面 1.0
+      }
+      if (this.waterDroplets !== null) this.waterDroplets.visible = false;
+      if (this.flagMesh !== null) this.flagMesh.rotation.z = 0;
+      return;
+    }
+    // 通常モード時に水しぶき可視性を戻す (reduced → normal の動的切替対応)
+    if (this.waterDroplets !== null && !this.waterDroplets.visible) {
+      this.waterDroplets.visible = true;
+    }
     // 水柱: y スケールを 0.7-1.3 で sin 振動
     if (this.waterColumn !== null) {
       const s = 1.0 + Math.sin(elapsed * 2.4) * 0.3;
