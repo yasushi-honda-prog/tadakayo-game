@@ -25,7 +25,14 @@ export class Collectible {
   collected = false;
 
   private readonly mesh: THREE.Group;
+  /** 浮遊中心の絶対 y (tryCollect の dy 判定で使う) */
   private readonly baseY: number;
+  /**
+   * 浮遊中心の object 内ローカル y (= baseY - position.y、常に 0.6)。
+   * animate() で mesh.position.y (object 相対) に代入するとき、絶対 baseY と
+   * 取り違えて余分に position.y 分高浮遊するバグを防ぐため明示分離。
+   */
+  private readonly meshBaseLocalY: number;
   private readonly material: THREE.MeshStandardMaterial;
   private readonly geometries: THREE.BufferGeometry[] = [];
   private readonly shadowMaterial: THREE.MeshBasicMaterial;
@@ -37,6 +44,9 @@ export class Collectible {
     this.position = position.clone();
     // baseY: ハート mesh の浮遊中心 (絶対 y)。position.y は足元の床面、+0.6 で目線高さに浮遊
     this.baseY = position.y + 0.6;
+    // mesh.position.y は object 相対なので、絶対 baseY から object.y (= position.y) を引く。
+    // 常に 0.6 だが、計算式を明示することで baseY (絶対) との混同を防ぐ。
+    this.meshBaseLocalY = this.baseY - this.position.y;
 
     this.material = new THREE.MeshStandardMaterial({
       color: BRAND_HEX.PRIMARY,
@@ -47,8 +57,7 @@ export class Collectible {
     });
 
     this.mesh = this.buildHeartMesh();
-    // mesh.position.y は object 相対なので、絶対 baseY から object.y (= position.y) を引く
-    this.mesh.position.set(0, this.baseY - this.position.y, 0);
+    this.mesh.position.set(0, this.meshBaseLocalY, 0);
 
     this.object = new THREE.Group();
     // object.position.y = 床面 (PR #23): 中央広場 0.15 / タダレク広場 0.2 / 草地 0。
@@ -126,17 +135,24 @@ export class Collectible {
 
   /**
    * 浮遊 + 回転アニメ。Game.ts のレンダリングフレームから呼ぶ。
-   * Stage 4 a11y: `prefers-reduced-motion` 時は浮遊と回転を停止し、ハートを baseY 静止表示。
+   * Stage 4 a11y: `prefers-reduced-motion` 時は浮遊と回転を停止し、ハートを浮遊中心 (object
+   * 相対 0.6) で静止表示。
+   *
+   * 旧 bug: 絶対 y の `baseY` を object 相対の `mesh.position.y` に代入していたため、
+   * 床面 position.y > 0 のハート (中央広場 0.15 / タダレク広場 0.2) が animate 開始直後に
+   * position.y 分余分に高く浮上していた (codex Stage 4 指摘)。`meshBaseLocalY` で
+   * 相対値を明示分離して解決。
    */
   animate(dt: number): void {
     if (this.collected) return;
     this.elapsed += dt;
     if (UserMotion.instance.prefersReduced) {
-      // 静止位置 + 既存 rotation を維持 (Y 位置だけ baseY に固定)
-      this.mesh.position.y = this.baseY;
+      // 静止位置 + 既存 rotation を維持 (Y 位置だけ浮遊中心に固定)
+      this.mesh.position.y = this.meshBaseLocalY;
       return;
     }
-    this.mesh.position.y = this.baseY + Math.sin(this.elapsed * FLOAT_SPEED) * FLOAT_AMPLITUDE;
+    this.mesh.position.y =
+      this.meshBaseLocalY + Math.sin(this.elapsed * FLOAT_SPEED) * FLOAT_AMPLITUDE;
     this.mesh.rotation.y += dt * ROT_SPEED;
   }
 
