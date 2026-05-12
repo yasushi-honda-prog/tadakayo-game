@@ -1,15 +1,59 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-12 (Phase 5-I: ScoreScreen UX + 看板 + collider 復活)
+最終更新: 2026-05-12 (Phase 5-I 完了 + **v1.0.0 Release 公開** + Issue #31 postponed 整備)
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `00783ad`)
+- **現在ブランチ**: `main`(同期済み、最新タグ `v1.0.0` → `c746805`、最新コミットは本 PR マージ後に更新)
 - **Phase 5 + 6 polish + Player ダンス + collider polish + sprite 浮き真因対応 + UX 文言修正 + ScoreScreen UX + 看板 + collider 復活 完了** ✅(2026-05-12)
-- **未マージ PR**: なし
+- **🏷️ v1.0.0 初回完成版リリース** ✅(2026-05-12): https://github.com/yasushi-honda-prog/tadakayo-game/releases/tag/v1.0.0
+- **未マージ PR**: なし (本 PR は handoff/CLAUDE.md 反映のみ)
+
+## 2026-05-12 セッション 4 成果 (v1.0.0 Release + Issue #31 postponed 整備)
+
+ユーザー判断「現状を一旦の完成版とする」を受け、リリース運用整備を実施。
+
+### Issue #31 を postponed ラベル運用に整合化
+
+CLAUDE.md `feedback_issue_postpone_pattern.md` 準拠で本人 postpone 宣言済の Issue #31 を整備。
+
+- `postponed` ラベルを新規作成 (color `FBCA04`、description「ROI 評価で延期判断。明示指示なき限り着手不可、再開条件は body 先頭参照」)
+- Issue #31 に `postponed` ラベル付与
+- body 先頭に `🟡 Postponed (2026-05-12)` セクション追加
+  - 再開条件 3 件をチェックボックス形式で明記 (本番ユーザー報告 / 物理修正の合わせ実装機会 / Issue 番号明示指示)
+  - 進捗サマリーを PR #40 まで反映 (4 柱 + 中央モニュメント collider 復活を表に統合)
+  - スコープ 3 修正候補と検証コスト (postpone 判断根拠) を本文に集約
+  - 元 Issue 内容を「履歴保持」セクションに退避
+- 効果: `/catchup` の active 一覧から外れ、ポストポーン専用セクションに分離表示 (workload -1)
+
+### v1.0.0 タグ + GitHub Release 公開
+
+- タグ: `v1.0.0` (annotated) → `c746805` (Phase 5-I 反映 commit、Phase 5-A から 5-I + Phase 6 polish 全部入り)
+- Release: https://github.com/yasushi-honda-prog/tadakayo-game/releases/tag/v1.0.0
+- `--latest` 指定、`isDraft: false` / `isPrerelease: false`
+- リリースノート (85 行) 構成:
+  - ハイライト (3D オープンワールド / 5 ミッション / Player ダンス / モバイル両対応 / 音響 / スコア / 演出)
+  - 操作表 (デスクトップ vs モバイル)
+  - 技術スタック (Three.js r169 / Rapier 0.19.3 / Vite 5 / TS 5)
+  - バンドルサイズ (main 540KB+gzip 139KB / rapier 2.2MB+gzip 836KB)
+  - 開発フェーズ要約 (5-A から 5-I + Phase 6)
+  - アセットライセンス (nano-banana / Kenney CC0 / Mixkit)
+  - 既知の制限事項 (Issue #31 postponed)
+  - ブラウザ要件 + 謝辞
+
+### 完成版スナップショット
+
+| 項目 | 値 |
+|---|---|
+| HEAD | `c746805` (`main` / `v1.0.0`) |
+| 公開 URL | https://yasushi-honda-prog.github.io/tadakayo-game/ |
+| 全機能稼働 | 5 ミッション + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + Player ダンス + HUD ヒント |
+| モバイル両対応 | 仮想スティック / ボタン / ⏸ |
+| bundle | main 540KB / gzip 139KB + rapier 2,237KB / gzip 836KB (dynamic import) |
+| 残課題 | Issue #31 (スコープ 3 段差エッジ snap、postponed P2) のみ |
 
 ## 2026-05-12 セッション 3 成果 (Phase 5-I: ScoreScreen UX + 看板 + collider 復活)
 

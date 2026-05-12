@@ -22,9 +22,17 @@
   - #39 ScoreScreen 表示時の `exitPointerLock()` 追加 + タダスクの塔の立て看板に CanvasTexture でテキスト描画 (フォントサイズは `measureText` 自動縮小)
   - #40 ScoreScreen ボタンクリック貫通の **真因対応**: `.score-screen` に `pointer-events: auto` 追加 (親 `#ui-layer` の `pointer-events: none` 継承で canvas に貫通していた、PauseMenu / MissionPanel と同パターン)
   - #40 中央モニュメント (台座 + ピンクキューブ) と タダレク広場 4 隅の柱の collider 復活 (ユーザー判断「すり抜けは駄目 (乗れても良い)」、PR #36 で sprite 浮きが解消済のため許容)
+- **🏷️ v1.0.0 初回完成版リリース** ✅ (2026-05-12): https://github.com/yasushi-honda-prog/tadakayo-game/releases/tag/v1.0.0
+  - annotated tag `v1.0.0` → `c746805` (Phase 5-I 反映 commit)、`--latest` 指定
+  - リリースノート 85 行: ハイライト / 操作表 / 技術スタック / バンドルサイズ / 開発フェーズ要約 / アセットライセンス / 既知制限 / ブラウザ要件 / 謝辞
+  - decision-maker 判断「現状を一旦の完成版とする」を受けたマイルストーン公開
+- **Issue #31 を postponed ラベル運用に整合化** ✅ (2026-05-12):
+  - `postponed` ラベル新規作成 (FBCA04) + Issue #31 に付与
+  - body 先頭に `🟡 Postponed (2026-05-12)` セクション追加、再開条件 3 件を機械判定可能なチェックボックス形式で明記 (`feedback_issue_postpone_pattern.md` 準拠)
+  - `/catchup` の active 一覧から外れ、ポストポーン専用セクションに分離表示 (workload -1)
 - 本番デプロイ済み: https://yasushi-honda-prog.github.io/tadakayo-game/
 - 全 5 ミッション完走 + スコア画面 + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント すべて稼働
-- **残課題**: Issue #31 OPEN (スコープ 3 のみ: 段差エッジ snap 失敗、本人 postpone 宣言済 P2)、Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
+- **残課題**: Issue #31 (`postponed` ラベル付与済、スコープ 3 のみ: 段差エッジ snap 失敗、P2)、Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
 - ハンドオフ: `docs/handoff/LATEST.md` 参照
 
 ## 公開 URL と base path
