@@ -386,6 +386,35 @@ html, body {
   animation: toastPop 0.4s ease-out;
 }
 
+/* Stage 4: オープニング演出 variant. 既存 clear toast の赤丸ピルとは別の
+ * 「ピンク背景 + 赤文字」の優しいトーンで、文字数が多いケース (welcome 文) に対応。
+ * 折り返しを許容するため line-height + max-width で multi-line サポート。 */
+.hud-toast.welcome {
+  background: var(--brand-pink);
+  color: var(--brand-primary);
+  border: 2px solid var(--brand-primary);
+  font-size: clamp(14px, 3vw, 20px);
+  font-weight: 700;
+  padding: 12px 24px;
+  letter-spacing: 0.06em;
+  max-width: min(640px, 92vw);
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-toast {
+    animation: none;
+  }
+  /* Stage 4 (codex review Medium): ScoreScreen 本体のフェードイン・ポップインも停止 */
+  .score-screen {
+    animation: none;
+  }
+  .score-card {
+    animation: none;
+  }
+}
+
 @keyframes toastPop {
   0% { transform: scale(0.6); opacity: 0; }
   60% { transform: scale(1.08); opacity: 1; }

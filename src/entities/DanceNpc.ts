@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { UserMotion } from "../config/UserMotion";
 
 /**
  * Phase 5-F: タダレク広場で「自動で踊っている」装飾 NPC。
@@ -74,6 +75,17 @@ export class DanceNpc {
   animate(dt: number): void {
     this.elapsed += dt;
     const t = this.elapsed + this.phase;
+    // Stage 4 a11y: prefers-reduced-motion 時はバウンス停止 + テクスチャ切替も最小化
+    // (front を維持して、動きをほぼ完全に除去する)
+    if (UserMotion.instance.prefersReduced) {
+      this.object.position.y = this.footPosition.y;
+      if (this.currentTextureIndex !== 0) {
+        this.currentTextureIndex = 0;
+        this.material.map = this.textures[0];
+        this.material.needsUpdate = true;
+      }
+      return;
+    }
     const bounce = Math.max(0, Math.sin(t * 4.0)) * 0.42;
     this.object.position.y = this.footPosition.y + bounce;
 
