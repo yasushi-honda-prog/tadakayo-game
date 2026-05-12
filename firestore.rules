@@ -1,0 +1,57 @@
+rules_version = '2';
+
+// タダカヨ村ゲームの Firestore セキュリティルール (Stage 3 / 2026-05-13)
+//
+// データモデル:
+//   gameRecords/{uid}  (uid = Anonymous Auth UID)
+//     - bestTimeSec: number | null
+//     - bestStars: number (0-5)
+//     - playCount: number
+//     - createdAt: Timestamp (初回作成時のみ書込、以降不変)
+//     - updatedAt: Timestamp (毎回 serverTimestamp で更新)
+//
+// 方針:
+// - 認証済みユーザーは自分の uid に紐づく record のみ R/W 可
+// - 他人の record は読めない・書けない
+// - codex Stage 3 review #2 対応: `hasOnly` で許可キーを固定、不要データ汚染を防ぐ
+// - create/update を分けて update では createdAt の改竄を防止
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /gameRecords/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && validNewRecord(request.resource.data);
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && validUpdate(resource.data, request.resource.data);
+      allow delete: if false;
+    }
+  }
+
+  // 共通フィールドの型・範囲チェック
+  function validFields(d) {
+    return d.keys().hasAll(['bestStars', 'playCount', 'updatedAt'])
+      && (!('bestTimeSec' in d) || d.bestTimeSec == null
+          || (d.bestTimeSec is number && d.bestTimeSec > 0 && d.bestTimeSec < 86400))
+      && d.bestStars is number && d.bestStars >= 0 && d.bestStars <= 5
+      && d.playCount is number && d.playCount >= 0 && d.playCount < 1000000
+      && d.updatedAt == request.time;
+  }
+
+  // 新規作成: createdAt 必須、許可キーは createdAt 込みで固定
+  function validNewRecord(d) {
+    return d.keys().hasOnly(['bestTimeSec', 'bestStars', 'playCount', 'createdAt', 'updatedAt'])
+      && d.keys().hasAll(['createdAt'])
+      && d.createdAt == request.time
+      && validFields(d);
+  }
+
+  // 更新: createdAt は不変、許可キーは固定 (createdAt は省略可、含まれる場合は既存値と一致必須)
+  function validUpdate(prev, d) {
+    return d.keys().hasOnly(['bestTimeSec', 'bestStars', 'playCount', 'createdAt', 'updatedAt'])
+      && (!('createdAt' in d) || d.createdAt == prev.createdAt)
+      && validFields(d);
+  }
+}

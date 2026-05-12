@@ -208,7 +208,10 @@ export class Game {
       // resetToTitle / dispose との競合で stale show を防ぐため timer id を保持し、
       // 発火時にも disposed/playing の世代チェックを入れる (codex+evaluator High 修正)
       if (this.scoreScreenTimerId !== null) clearTimeout(this.scoreScreenTimerId);
-      this.scoreScreenTimerId = window.setTimeout(() => {
+      // Stage 3: firebase が依存する @types/node 導入で setTimeout の戻り値型が
+      // ブラウザ env でも Node の Timeout になる。window.setTimeout (number 返却) ではなく
+      // ReturnType<typeof setTimeout> として整合させる。
+      this.scoreScreenTimerId = setTimeout(() => {
         this.scoreScreenTimerId = null;
         if (this.disposed || !this.playing) return;
         this.scoreScreen.show(this.collectStats());
