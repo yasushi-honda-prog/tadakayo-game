@@ -697,13 +697,15 @@ export class Game {
       return { position: { x: t.x, z: t.z }, label: "タダスクの塔" };
     }
     if (fg instanceof TalkMission || fg.id === "talk-three-voices") {
-      // 未会話 NPC のうち最寄り
+      // 未会話 NPC のうち最寄り。codex Stage 1 review #5 対応:
+      // 「required かつ未会話」に限定し、脇役 NPC が目標化されるのを防ぐ。
       const tm = this.talkMission;
       if (tm === null) return null;
       const p = this.player.position;
       let best: { x: number; z: number; name: string } | null = null;
       let bestDist = Infinity;
       for (const n of this.npcs) {
+        if (!tm.isRequiredNpc(n.id)) continue;
         if (tm.hasTalkedTo(n.id)) continue;
         const d = Math.hypot(n.position.x - p.x, n.position.z - p.z);
         if (d < bestDist) {

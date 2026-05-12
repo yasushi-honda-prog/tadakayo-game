@@ -38,6 +38,10 @@ export class HUD {
   private toastTimer: number | null = null;
   private lastCompassLabel = "";
   private lastCompassDistanceM = -1;
+  /** 矢印 transform を 0.5 度単位でキャッシュし、毎フレーム DOM 書込を抑制 (codex review #3) */
+  private lastCompassDegHalf = NaN;
+  /** aria-label 用の方向セクター (前/右前/右/...) を保持し、distance/方向変化時のみ更新 (codex review #4) */
+  private lastCompassSector = "";
 
   constructor() {
     const root = document.getElementById("hud");
@@ -102,27 +106,74 @@ export class HUD {
     if (info === null) {
       if (!this.compassEl.classList.contains("hidden")) {
         this.compassEl.classList.add("hidden");
+        this.compassEl.removeAttribute("aria-label");
       }
       this.lastCompassLabel = "";
       this.lastCompassDistanceM = -1;
+      this.lastCompassDegHalf = NaN;
+      this.lastCompassSector = "";
       return;
     }
     if (this.compassEl.classList.contains("hidden")) {
       this.compassEl.classList.remove("hidden");
     }
-    // CSS の rotate は時計回り正、計算側 angleRad も画面右が正で整合
+    // 矢印回転: CSS rotate は時計回り正、計算側 angleRad も画面右が +deg で整合。
+    // codex review #3 対応: 0.5 度単位でキャッシュし、変化時のみ DOM 書込
     const deg = (info.angleRad * 180) / Math.PI;
-    this.compassArrowEl.style.transform = `rotate(${deg.toFixed(1)}deg)`;
+    const degHalf = Math.round(deg * 2) / 2;
+    if (degHalf !== this.lastCompassDegHalf) {
+      this.compassArrowEl.style.transform = `rotate(${degHalf.toFixed(1)}deg)`;
+      this.lastCompassDegHalf = degHalf;
+    }
 
     if (info.label !== this.lastCompassLabel) {
       this.compassLabelEl.textContent = info.label;
       this.lastCompassLabel = info.label;
     }
     const dInt = Math.max(0, Math.round(info.distanceM));
-    if (dInt !== this.lastCompassDistanceM) {
+    const distanceChanged = dInt !== this.lastCompassDistanceM;
+    if (distanceChanged) {
       this.compassDistanceEl.textContent = `${dInt}m`;
       this.lastCompassDistanceM = dInt;
     }
+
+    // codex review #4 対応: aria-label を 8 方位文字列で更新 (スクリーンリーダー向け)。
+    // 毎フレームでは重いため、方位セクターか距離か label が変わった時のみ更新する。
+    const sector = HUD.angleToSector(info.angleRad);
+    if (
+      distanceChanged ||
+      sector !== this.lastCompassSector ||
+      info.label !== this.lastCompassLabel
+    ) {
+      this.compassEl.setAttribute(
+        "aria-label",
+        `目標: ${info.label}、${sector}、${dInt}m`,
+      );
+      this.lastCompassSector = sector;
+    }
+  }
+
+  /**
+   * カメラ視線基準の角度 (rad) を 8 方位の日本語文字列に変換。
+   * 前=0、右=+π/2、左=-π/2、後ろ=±π を基準に π/8 刻みでセクター判定。
+   */
+  private static angleToSector(angleRad: number): string {
+    const TWO_PI = Math.PI * 2;
+    // 0..2π に正規化 (前=0、時計回り正)
+    let a = angleRad % TWO_PI;
+    if (a < 0) a += TWO_PI;
+    const sectors = [
+      "前",
+      "右前",
+      "右",
+      "右後ろ",
+      "後ろ",
+      "左後ろ",
+      "左",
+      "左前",
+    ];
+    const idx = Math.floor((a + Math.PI / 8) / (Math.PI / 4)) % 8;
+    return sectors[idx];
   }
 
   flashClear(text: string, durationMs = 3000): void {
