@@ -1,6 +1,6 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-13 (Phase 6 ブラッシュアップ Stage 1-4 完了 + Firebase Hosting 移行)
+最終更新: 2026-05-13 (Phase 6 ブラッシュアップ Stage 1-4 + 配信インフラ整備 PR #61-62 完了)
 
 ## 現在地点
 
@@ -8,8 +8,8 @@
 - **公開 URL (新、現用)**: https://tadakayo-game-yh.web.app/ (Firebase Hosting)
 - **公開 URL (旧、redirect 中)**: https://yasushi-honda-prog.github.io/tadakayo-game/ → 新 URL へ `meta refresh` + `location.replace` で自動転送 (`redirect/index.html` + `.github/workflows/pages-redirect.yml`)
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `0e8314b`)
-- **Phase 6 ブラッシュアップ完了** ✅ (2026-05-13)
+- **現在ブランチ**: `main`(同期済み、最新コミット `d640c09`)
+- **Phase 6 ブラッシュアップ完了** ✅ (2026-05-13) + **配信インフラ整備 PR #61-62 完了** ✅
 - **未マージ PR**: なし
 
 ## Phase 6 全体総括 (2026-05-13、Stage 1-4)
@@ -45,6 +45,17 @@
 | 4 | **1** | 3 件: Player ダンス・走行微振動、NPC glow pulse・浮遊、ScoreScreen 本体アニメ | UserMotion listener 解除 等 |
 
 各 Stage で codex review 後に追加コミットで Medium 以上をすべて反映、Low は別 PR / 修正不要判断を明文化。
+
+## Phase 6 後の配信インフラ整備 (2026-05-13、PR #61-62)
+
+Stage 1-4 完了後、Stage 3 で発生した「旧 GitHub Pages URL に古いコンテンツが残存」「本番 deploy が手動運用」の 2 つの運用負債を解消した。
+
+| PR | 内容 | 変更規模 |
+|---|---|---|
+| [#61](https://github.com/yasushi-honda-prog/tadakayo-game/pull/61) | 旧 `yasushi-honda-prog.github.io/tadakayo-game/` → 新 `tadakayo-game-yh.web.app/` への `meta refresh` + `location.replace` redirect (`redirect/index.html` + `.github/workflows/pages-redirect.yml`)。canonical link + 日本語通知文 + light/dark mode 対応 | 4 files, +125/-6 |
+| [#62](https://github.com/yasushi-honda-prog/tadakayo-game/pull/62) | `.github/workflows/firebase-hosting.yml` で main push 時に live channel へ自動 deploy。SA `github-actions-hosting@tadakayo-game-yh` を最小権限 (`roles/firebasehosting.admin` のみ) で作成、`FIREBASE_SERVICE_ACCOUNT_TADAKAYO_GAME_YH` + `VITE_FIREBASE_*` 6 件を Secrets 登録 | 5 files, +115/-17 |
+
+両 PR とも `FirebaseExtended/action-hosting-deploy@v0` や Pages workflow に `run:` ステップを含めず injection 面ゼロ、permissions 最小、`paths-ignore` で docs / redirect 専用 PR では deploy をスキップする設計。
 
 ## アーキテクチャ概要 (Phase 6 完了時点)
 
