@@ -14,6 +14,15 @@ tsconfig.tsbuildinfo
 # Screenshot 確認用（dev 中の生成物）
 phase*.png
 prod*.png
+# Playwright MCP 検証用スクリーンショット (root 直下、git 不要)
+after-*.png
+bench-*.png
+camera-*.png
+fix-verify-*.png
+hint-fix-*.png
+play-*.png
+sprite-fix-*.png
+tadareku-*.png
 
 # direnv local cache
 .direnv/

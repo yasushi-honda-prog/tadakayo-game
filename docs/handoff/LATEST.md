@@ -1,17 +1,45 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-12 (Player ダンス機能 + collider polish 完了)
+最終更新: 2026-05-12 (sprite 浮き真因対応 + UX 文言修正)
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `b3adc3c`)
-- **Phase 5 + 6 polish + Player ダンス + collider polish 完了** ✅(2026-05-12)
+- **現在ブランチ**: `main`(同期済み、最新コミット `10236d8`)
+- **Phase 5 + 6 polish + Player ダンス + collider polish + sprite 浮き真因対応 + UX 文言修正 完了** ✅(2026-05-12)
 - **未マージ PR**: なし
 
-## 2026-05-12 セッション成果
+## 2026-05-12 セッション 2 成果 (Issue #31 真因対応 + UX)
+
+ユーザー報告「カメラ視点切り替えでキャラクターが浮く」「ジャンプしてない」を **Playwright MCP で実機検証** した結果、Issue #31 のスコープ 3 (Rapier KCC 段差 snap 失敗) 仮説は誤りと判明。真因は **Player sprite が常に capsule 足元から 0.85m 浮いて表示される設計バグ**だった。
+
+| PR | 内容 | 効果 |
+|---|---|---|
+| **#36** | Player sprite が常に capsule 足元から 0.85m 浮く問題を修正 (Issue #31 真因) | カメラを動かしても Player が地面に接地、本番反映済 |
+| **#37** | 操作ヒントの「視点ロック」表現を「マウス視点 ON/OFF」に変更 + 「矢印キーで移動」 | 紛らわしい表現を排除 |
+| **#35** | (close) タダレク広場の噴水・ベンチに乗れる挙動を解消 | ユーザー判断「乗れても良い」で見送り、PR #36 で sprite 浮きが消えれば UX 影響低 |
+
+### PR #36 詳細 (真因対応)
+- `src/entities/Player.ts:84` の式が capsule の halfHeight (0.55) + radius (0.35) = 0.9m を考慮しておらず、sprite 底面が常に capsule 足元より 0.85m 高かった
+- 旧式: `sprite.position.y = SPRITE_SIZE.height / 2 - 0.05` (= 0.95) → sprite 中心が capsule center + 0.95m
+- 新式: `sprite.position.y = SPRITE_SIZE.height / 2 - (COLLIDER.halfHeight + COLLIDER.radius)` (= 0.10) → sprite 底面 = capsule 足元
+- 2 箇所 (constructor + update の baseY) を同式に統一、PLAYER.COLLIDER から値を引くため将来 capsule 寸法を変えても自動追従
+- Playwright で sprite 底面 world Y = capsule 足元 world Y (完全一致、誤差 0.01m 内) を確認
+- 本番 (https://yasushi-honda-prog.github.io/tadakayo-game/) で 3 アングル (デフォルト/俯瞰/横方向) の接地を視覚確認済
+
+### PR #37 詳細 (UX 文言)
+- タイトル画面 PC 操作: 「マウスクリックで視点ロック」→「画面クリックでマウス視点操作 ON」、「Esc で視点ロック解除」→「Esc で視点操作解除」
+- HUD ヒント: 「クリックで視点ロック」→「クリックでマウス視点変更 ON / Esc で OFF」、「WASD 移動」→「矢印キーで移動」
+- 「視点ロック」表現が「視点を固定する」と誤解されやすい点を排除
+
+### 重要な学び (Issue #31 検証プロセス)
+1. **ユーザーの現場観察を AI 推測より優先する**: PR #33 マージ時のコメント「カメラ切替が原因ではない (ジャンプ中の偶然着地)」は AI 推測で誤り。ユーザーが「ジャンプしてない」と明示しているのに別仮説 (歩行 + 構造物乗り上げ) で検証を進めた結果、PR #35 を起票 → close するノイズを生んだ
+2. **Playwright MCP は executor の標準ツール**: ユーザーに現場確認を依頼する前に、自分で navigate して数値・スクリーンショットで一次データを取る
+3. **「物理接地 (grounded=true)」と「視覚接地 (sprite 底面 = 地面)」は別問題**: grounded だけ確認して接地完了と判断するのは不十分。sprite の世界座標で「絵が地面に立っているか」を必ず別途確認する
+
+## 2026-05-12 セッション 1 成果 (午前)
 
 | PR | 内容 | 効果 |
 |---|---|---|
@@ -36,11 +64,12 @@
 
 1. `cd /Users/yyyhhh/Projects/tadakayo/game-ai && direnv allow` で `GH_TOKEN` 読み込み
 2. **本番動作確認** (https://yasushi-honda-prog.github.io/tadakayo-game/):
-   - タダレク広場で E 押下 → Player が踊る (EDM BGM)、DanceMission クリア後も繰り返し可
-   - 中央広場/タダレク広場のモニュメント/柱/木に**乗れない**ことを確認
+   - Player の足が地面に接地 (sprite 浮きが消えていること、PR #36)
+   - HUD/タイトル画面のヒント文言が新表現 (「クリックでマウス視点変更 ON / Esc で OFF」「矢印キーで移動」、PR #37)
 3. 残課題 (low priority):
-   - **Issue #31 スコープ 3 (OPEN)**: 段差エッジで capsule が浮く Rapier KCC 挙動 (P2、本番様子見、修正候補は Issue コメント記録済)
-   - **Rapier 0.20+ アップデート時の init() deprecation 再評価**
+   - **Issue #31 OPEN (スコープ 3 のみ残)**: 段差エッジで capsule が浮く Rapier KCC 挙動 (P2、本人 postpone 宣言済「単独着手は当面見送り、要請があれば再着手」)
+   - **噴水/ベンチ歩行乗り上げ**: PR #35 close (ユーザー判断「乗れても良い」)、sprite 浮き解消後の見え方を本番で再評価し UX 判定
+   - **Rapier 0.20+ アップデート時の init() deprecation 再評価** (0.19.3 が最新、未リリース)
    - 新規ミッション追加 / 演出強化 / コンテンツ拡張など自由に着手可
 4. 不明な場合は `/catchup` で最新 Issue / PR / handoff を再確認
 
@@ -61,6 +90,7 @@
 | 6 polish | 赤靴 sprite 再生成 (#26) / bundle code split (#27) / preload crossorigin (#28) | ✅ |
 | 5-G dance | Player ダンス機能 + 専用 sprite + EDM BGM (PR #30) | ✅ |
 | 5-G polish | 柱/木/モニュメント collider 修正 (PR #32, #33、Issue #31 スコープ 1+2+追加) | ✅ |
+| 5-H 真因対応 | Player sprite 0.85m 浮き修正 (PR #36、Issue #31 真因) + UX 文言修正 (PR #37) | ✅ |
 
 詳細プラン: `/Users/yyyhhh/.claude/plans/yasushi-honda-prog-github-githubpages-us-transient-summit.md`
 
@@ -109,7 +139,10 @@
 | ~~bundle 2,773 KB / gzip 974 KB~~ | ✅ 解消 | PR #27 dynamic import で main 538 KB / gzip 138 KB |
 | ~~preload credentials mode 不一致 warning 40+ 件~~ | ✅ 解消 | PR #28 crossorigin="anonymous" 追加で 41→1 |
 | ~~Player が柱/木/中央モニュメントの上に乗れる~~ | ✅ 解消 | PR #32/#33 で collider 装飾化、Issue #31 スコープ 1+2+追加完了 |
-| **Issue #31 OPEN: 段差エッジで capsule が浮く Rapier KCC 挙動** | P2 | スコープ 3 残課題、修正候補 4 案を Issue コメント記録済。本番ユーザー報告を待って判断 (snap 距離拡大 / capsule radius 縮小 / autostep 上限調整 / マップ collider 面取り) |
+| ~~カメラ視点切り替えで Player が浮く (Issue #31 真因)~~ | ✅ 解消 | PR #36 で sprite.position.y 式を capsule 足元基準に変更、本番接地確認済 |
+| ~~HUD/タイトル「視点ロック」表現が紛らわしい~~ | ✅ 解消 | PR #37 で「クリックでマウス視点変更 ON / Esc で OFF」「矢印キーで移動」に変更 |
+| **Issue #31 OPEN: 段差エッジで capsule が浮く Rapier KCC 挙動 (スコープ 3 のみ)** | P2 | 本人 postpone 宣言済 (Issue コメント)。修正候補 4 案 (snap 距離拡大 / capsule radius 縮小 / autostep 上限調整 / マップ collider 面取り) はコメント記録済 |
+| 噴水・ベンチ歩行乗り上げ | 様子見 | PR #35 close (ユーザー判断「乗れても良い」)、sprite 浮き解消後の本番見え方で再評価 |
 | Rapier `init()` deprecated parameters warning | Low | `@dimforge_rapier3d-compat.js:2516` ライブラリ内部の自己呼び出し起因、app コードから修正不可。Rapier 0.20+ アップデート時に再評価候補 |
 
 ## アーキテクチャ概要 (Phase 5-F 完了時点)
