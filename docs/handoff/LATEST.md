@@ -1,15 +1,63 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-12 (Phase 5-I: ScoreScreen UX + 看板 + collider 復活)
+最終更新: 2026-05-12 (Phase 5-J: UI / 輪郭品質改善 + sprite 不可視 hotfix)
 
 ## 現在地点
 
 - **リポジトリ**: [yasushi-honda-prog/tadakayo-game](https://github.com/yasushi-honda-prog/tadakayo-game)
 - **公開 URL**: https://yasushi-honda-prog.github.io/tadakayo-game/
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `00783ad`)
-- **Phase 5 + 6 polish + Player ダンス + collider polish + sprite 浮き真因対応 + UX 文言修正 + ScoreScreen UX + 看板 + collider 復活 完了** ✅(2026-05-12)
+- **現在ブランチ**: `main`(同期済み、最新コミット `03302b2`)
+- **v1.0.0 リリース済 + Phase 5-J UI / 輪郭品質改善 + sprite 不可視 hotfix 完了** ✅(2026-05-12)
 - **未マージ PR**: なし
+
+## 2026-05-12 セッション 4 成果 (Phase 5-J: UI + 輪郭品質改善 + sprite 不可視 hotfix)
+
+v1.0.0 リリース後の追加 polish。6 PR マージ。最後の PR #48 はユーザー環境固有の sprite 不可視を codex セカンドオピニオン併用で hotfix 対応。
+
+| PR | 内容 | 効果 |
+|---|---|---|
+| **#43** | canvas 上の十字カーソル (`cursor: crosshair`) を非表示化 | PointerLock OFF 時の常時赤十字を解消 |
+| **#44** | `scripts/clean-white-halo.py` 追加、21 PNG (3-9% 削除) | スプライト輪郭の白いハロー除去 |
+| **#45** | sprite テクスチャに `LinearMipmapLinearFilter` + `generateMipmaps=true` 適用 | 縮小エイリアシング除去 (→ #48 で sprite 側 revert) |
+| **#46** | `scripts/soften-alpha.py` 追加、22 PNG の alpha を Gaussian σ=0.6 でぼかす | AI 線画の折れ線ジャギーをソフト化 |
+| **#47** | タダスクの塔の看板柱を看板下面 (y=0.85) で止める | 柱が看板を 0.55m 貫通して Z-fighting (細い縦線) を解消 |
+| **#48** | (hotfix) sprite 側で PR #45 を revert + SpriteMaterial に `alphaTest: 0.01` 追加 | ユーザー環境で全 sprite 不可視になる症状の対処 |
+
+### #43 詳細
+- 元: `#game-canvas { cursor: crosshair }` で PointerLock OFF 時 (Esc 後 / モーダル中) に常時赤十字
+- 修正: `cursor: none` に変更 + `.screen { pointer-events: auto; cursor: default }` 追加 (TitleScreen 用に矢印カーソル復活)
+- HUD / DialogBox / MissionPanel / PauseMenu / ScoreScreen は body から `auto` 継承 (= 標準矢印) で問題なし
+
+### #44 詳細 (PNG 後処理 - 白ハロー除去)
+- AI (nano-banana) がチェッカー背景上に描く際に anti-alias の白ハローを残す
+- 既存 `remove-checker-bg.py` の **靴保護 12px dilation の副作用** で白ハローも「キャラの一部」として保存されていた
+- 新規 `scripts/clean-white-halo.py`: alpha=0 隣接 8px 以内の **ほぼ白 (RGB>=200) かつ低彩度 (gray)** ピクセルを透明化
+- 環境変数 `HALO_ITER=8 HALO_RGB_MIN=200` (デフォルト)、キャラ内部の白色 (歯/目のハイライト) と黒線 anti-alias の中明度グレーは保護条件で除外
+
+### #45 → #48 詳細 (mipmap 適用とその撤回)
+- **#45**: `Player.ts` / `NPC.ts` / `DanceNpc.ts` の Texture を `LinearFilter` → `LinearMipmapLinearFilter` + `generateMipmaps=true`、dev / Playwright Chromium で輪郭が大幅に滑らかに
+- **本番ユーザー報告**: 「キャラクターが誰もいない (Player + NPC + DanceNpc すべて表示されない)」、Mesh (Collectible / 街灯 / 噴水 / 建物) は表示 → **Sprite 系のみ消える**
+- **dev / Chromium 新規セッションでは無症状** (検証済)、ユーザー環境固有
+- **codex セカンドオピニオン要約**: PR #45 mipmap completeness 違反 (透明領域 RGB bleed なしで mipmap chain 破綻) + PR #46 で生まれた alpha=1-10 極小値が mipmap 縮小で alpha=2-3 まで下がり特定 GPU で完全透明化
+- **#48 hotfix**: sprite 側だけ `LinearFilter` に戻す + `generateMipmaps=false` 明示 + SpriteMaterial に `alphaTest: 0.01` (極小 alpha 切り捨ての防御層)
+- 副作用: PR #45 の輪郭品質改善は失われるが、PR #44 (白ハロー除去) + PR #46 (alpha smoothing) は維持されるため初期状態より改善
+
+### #46 詳細 (PNG 後処理 - alpha Gaussian smoothing)
+- 残るジャギー = AI 線画自体の折れ線描画。RGB は触らず alpha チャンネルだけ Gaussian σ=0.6 でぼかすことで透明境界の「角」を 1-2 px ほど丸めて目立たなくする
+- 22 PNG 全適用、1 枚あたり 13K-32K alpha pixel が変更 (大半は端 1-2 px の階調化)
+- title-logo にも適用 (alpha 隣接ピクセル変化あり)
+
+### #47 詳細 (看板柱の貫通修正)
+- 看板: 中心 y=1.4, half y=0.55 → 範囲 y=0.85-1.95
+- 柱 (修正前): 中心 y=0.7, half y=0.7 → 範囲 y=0-1.4 → **看板内部に 0.55m 突き出て Z-fighting**
+- 修正: 中心 y=0.425, half y=0.425 → top y=0.85 (看板下面と接する)、physics collider も同時更新
+
+### 重要な学び (本セッション)
+1. **dev で再現しないユーザー固有不具合は環境差分の仮説検証が必須**: 単なるブラウザキャッシュ問題と決めつけず、変更要因 (PR #45 + #46) と GPU/ドライバ依存の WebGL 仕様 (mipmap completeness、alphaTest) を洗い出す
+2. **codex セカンドオピニオンは大規模 PR 後の不具合切り分けで有効**: 6 エージェント並列レビューより codex の「他の見落としは？」相談の方が hotfix では速い
+3. **アセット pipeline の mipmap 化は RGB bleed + alpha floor clamp + alphaTest をセットで実装する必要**: 透明領域 RGB を周辺色で埋めないと mipmap 縮小で白 fringe が混ざる (codex 指摘、CLAUDE.md「残課題」に反映済)
+4. **trade-off 許容判断**: PR #45 の輪郭品質改善 vs sprite 不可視回避 → 後者を優先 (decision-maker 領分の判断)、ただし将来 mipmap 復活する場合の必要条件を文書化
 
 ## 2026-05-12 セッション 3 成果 (Phase 5-I: ScoreScreen UX + 看板 + collider 復活)
 
