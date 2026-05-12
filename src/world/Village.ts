@@ -263,11 +263,11 @@ export class Village {
     signMesh.castShadow = true;
     this.object.add(signMesh);
     physics.addStaticCuboid(signHalf, signPos);
-    // 看板の柱
+    // 看板の柱 (上端を看板の下面 y=0.85 で止めて Z-fighting / 貫通を回避)
     this.addBoxMesh(
       physics,
-      { x: 0.05, y: 0.7, z: 0.05 },
-      { x: baseX + 4, y: 0.7, z: baseZ },
+      { x: 0.05, y: 0.425, z: 0.05 },
+      { x: baseX + 4, y: 0.425, z: baseZ },
       COLOR.LAMP_POLE
     );
 
