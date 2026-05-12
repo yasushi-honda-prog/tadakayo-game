@@ -86,7 +86,14 @@
         </div>
         <div id="hud" class="hud hidden">
           <div class="hud-row hud-row-top">
-            <div class="hud-pill hud-hint">Esc / P でポーズ ・ M でミッション一覧 ・ クリックでマウス視点変更 ON / Esc で OFF ・ 矢印キーで移動 / Space ジャンプ</div>
+            <div class="hud-pill hud-hint">
+              <span class="hud-hint-item"><kbd>WASD</kbd>/矢印 移動</span>
+              <span class="hud-hint-item"><kbd>Space</kbd> ジャンプ</span>
+              <span class="hud-hint-item"><kbd>E</kbd> 会話/踊る</span>
+              <span class="hud-hint-item">クリックで視点回転（<kbd>Esc</kbd> で解除）</span>
+              <span class="hud-hint-item"><kbd>M</kbd> ミッション</span>
+              <span class="hud-hint-item"><kbd>Esc</kbd>/<kbd>P</kbd> ポーズ</span>
+            </div>
           </div>
           <div id="hud-mission" class="hud-mission hidden">
             <span class="hud-mission-label">現在のミッション</span>
@@ -170,8 +177,40 @@
             <button id="pause-mute-toggle" class="mute-button" type="button">🔊 音 ON</button>
             <button id="pause-controls-toggle" class="mute-button" type="button">操作説明 ▾</button>
             <div id="pause-controls-detail" class="pause-controls-detail hidden">
-              <strong>PC:</strong> WASD 移動 ・ Space ジャンプ ・ E アクション / 会話 ・ M ミッション一覧 ・ Esc / P でポーズ<br />
-              <strong>モバイル:</strong> 左半分仮想スティック ・ 右スワイプ視点 ・ 右下ジャンプ / E ・ 右上 ⏸ ポーズ
+              <section class="hint-section">
+                <h3 class="hint-section-title">パソコン</h3>
+                <dl class="hint-list">
+                  <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 矢印キー</dt>
+                  <dd>移動</dd>
+                  <dt><kbd>Shift</kbd></dt>
+                  <dd>ダッシュ</dd>
+                  <dt><kbd>Space</kbd></dt>
+                  <dd>ジャンプ</dd>
+                  <dt><kbd>E</kbd></dt>
+                  <dd>会話・踊る</dd>
+                  <dt>画面クリック</dt>
+                  <dd>マウス視点（<kbd>Esc</kbd> で解除）</dd>
+                  <dt><kbd>M</kbd></dt>
+                  <dd>ミッション一覧</dd>
+                  <dt><kbd>Esc</kbd> / <kbd>P</kbd></dt>
+                  <dd>ポーズ</dd>
+                </dl>
+              </section>
+              <section class="hint-section">
+                <h3 class="hint-section-title">スマホ・タブレット</h3>
+                <dl class="hint-list">
+                  <dt>画面の左半分ドラッグ</dt>
+                  <dd>仮想スティックで移動</dd>
+                  <dt>画面の右半分スワイプ</dt>
+                  <dd>視点を回す</dd>
+                  <dt>右下「↑」ボタン</dt>
+                  <dd>ジャンプ</dd>
+                  <dt>右下「E」ボタン</dt>
+                  <dd>会話・踊る</dd>
+                  <dt>右上「⏸」ボタン</dt>
+                  <dd>ポーズ</dd>
+                </dl>
+              </section>
             </div>
             <button id="pause-reset" class="mute-button danger" type="button">タイトルに戻る</button>
             <p class="pause-menu-hint">Esc / P でも閉じられます</p>
