@@ -109,15 +109,6 @@ html, body {
   letter-spacing: 0.05em;
 }
 
-.phase-tag {
-  font-size: 11px;
-  color: rgba(0, 0, 0, 0.55);
-  letter-spacing: 0.08em;
-  background: rgba(255, 255, 255, 0.7);
-  padding: 3px 10px;
-  border-radius: 999px;
-}
-
 .primary-button {
   appearance: none;
   border: none;
