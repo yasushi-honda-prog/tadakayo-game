@@ -1057,6 +1057,54 @@ html, body {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* Stage 3: 自己ベスト・累計クリア行は薄い背景強調で「過去記録セクション」を視覚分離 */
+.score-stat-row-record {
+  background: rgba(227, 53, 53, 0.04);
+  margin: 4px -6px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 8px;
+}
+
+.score-stat-row-record:first-of-type {
+  margin-top: 8px;
+}
+
+/* Stage 3: クリアタイム行 + 新記録バッジを横並び + 折り返し対応 */
+.score-stat-row-time {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.score-new-record-badge {
+  flex-basis: 100%;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-primary);
+  background: linear-gradient(90deg, transparent, rgba(255, 226, 247, 0.6));
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-top: 2px;
+  animation: newRecordPop 0.6s ease-out;
+}
+
+.score-new-record-badge.hidden {
+  display: none !important;
+}
+
+@keyframes newRecordPop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-new-record-badge {
+    animation: none;
+  }
+}
 .score-message {
   font-size: 14px;
   color: #4a2230;

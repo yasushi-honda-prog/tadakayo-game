@@ -1,18 +1,24 @@
-name: Deploy to GitHub Pages
+name: Build & Type Check
 
+# Stage 3 / 2026-05-13: GitHub Pages デプロイから Firebase Hosting (手動 `firebase deploy`)
+# 運用に移行したため、本 workflow は **ビルド検証のみ** を担当。
+# 自動デプロイ CI (Firebase Service Account 認証) は別 PR で再構築する。
+#
+# セキュリティ注意: 本 workflow は github.event.* の信頼できない入力 (issue title, PR body,
+# commit message 等) を `run:` 内で直接展開しない設計。将来 deploy step を追加する際も、
+# 信頼できない入力は env: 経由で受け取り `"$VAR"` の形でクォートして使うこと。
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -33,27 +39,8 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Build
+      - name: Build (verify only, no deploy)
+        # VITE_FIREBASE_* secrets が未設定でも build 自体は通る (FirebaseService が
+        # null を返してゲームは localStorage 単独動作するグレースフルデグレード設計)。
+        # 本番デプロイは現状ローカルから `firebase deploy --only hosting` で実施。
         run: npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          # 初回のみ Pages を自動有効化。Settings → Pages を手動操作せずに済ませる
-          enablement: true
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

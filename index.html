@@ -145,9 +145,10 @@
             <p class="score-subtitle">全 4 ミッションを達成しました！</p>
             <div class="score-stars" id="score-stars">★★★★★</div>
             <div class="score-stats">
-              <div class="score-stat-row">
+              <div class="score-stat-row score-stat-row-time" id="score-time-row">
                 <span class="score-stat-label">クリアタイム</span>
                 <span id="score-time" class="score-stat-value">--:--</span>
+                <span id="score-new-record" class="score-new-record-badge hidden" aria-live="polite">🏆 新記録!</span>
               </div>
               <div class="score-stat-row">
                 <span class="score-stat-label">DXの種を集めた</span>
@@ -164,6 +165,14 @@
               <div class="score-stat-row">
                 <span class="score-stat-label">塔の頂上に到達</span>
                 <span id="score-tower" class="score-stat-value">—</span>
+              </div>
+              <div class="score-stat-row score-stat-row-record">
+                <span class="score-stat-label">自己ベスト</span>
+                <span id="score-best-time" class="score-stat-value">—</span>
+              </div>
+              <div class="score-stat-row score-stat-row-record">
+                <span class="score-stat-label">累計クリア</span>
+                <span id="score-play-count" class="score-stat-value">0 回</span>
               </div>
             </div>
             <div class="score-message" id="score-message">

@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// タダカヨ村ゲームの Firestore セキュリティルール (Stage 3)
+//
+// データモデル:
+//   gameRecords/{uid}  (uid = Anonymous Auth UID)
+//     - bestTimeSec: number | null
+//     - bestStars: number (0-5)
+//     - playCount: number
+//     - createdAt: Timestamp
+//     - updatedAt: Timestamp
+//
+// 方針:
+// - 認証済みユーザーは自分の uid に紐づく record のみ R/W 可
+// - 他人の record は読めない・書けない
+// - スキーマ検証: 数値型と範囲を厳格チェックして異常書込を拒否
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /gameRecords/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && validRecord(request.resource.data);
+      allow delete: if false; // record 削除は不要
+    }
+  }
+
+  function validRecord(d) {
+    return d.keys().hasAll(['bestStars', 'playCount', 'updatedAt'])
+      && (d.bestTimeSec == null || (d.bestTimeSec is number && d.bestTimeSec > 0 && d.bestTimeSec < 86400))
+      && d.bestStars is number && d.bestStars >= 0 && d.bestStars <= 5
+      && d.playCount is number && d.playCount >= 0 && d.playCount < 1000000
+      && d.updatedAt == request.time;
+  }
+}
