@@ -78,6 +78,7 @@ export class Player {
       map: this.textures.front.idle ?? this.textures.front.run,
       transparent: true,
       depthWrite: false,
+      alphaTest: 0.01,
     });
     this.sprite = new THREE.Sprite(this.material);
     this.sprite.scale.set(PLAYER.SPRITE_SIZE.width, PLAYER.SPRITE_SIZE.height, 1);
@@ -102,9 +103,9 @@ export class Player {
     const load = (name: string): THREE.Texture => {
       const tex = loader.load(`${base}assets/images/${name}.png`);
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
-      tex.generateMipmaps = true;
+      tex.generateMipmaps = false;
       return tex;
     };
     return {
@@ -145,9 +146,9 @@ export class Player {
     return names.map((name) => {
       const tex = loader.load(`${base}assets/images/${name}.png`);
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
-      tex.generateMipmaps = true;
+      tex.generateMipmaps = false;
       return tex;
     });
   }

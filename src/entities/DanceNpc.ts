@@ -41,9 +41,9 @@ export class DanceNpc {
     this.textures = names.map((name) => {
       const t = loader.load(`${base}assets/images/${name}.png`);
       t.colorSpace = THREE.SRGBColorSpace;
-      t.minFilter = THREE.LinearMipmapLinearFilter;
+      t.minFilter = THREE.LinearFilter;
       t.magFilter = THREE.LinearFilter;
-      t.generateMipmaps = true;
+      t.generateMipmaps = false;
       return t;
     });
 
@@ -51,6 +51,7 @@ export class DanceNpc {
       map: this.textures[0],
       transparent: true,
       depthWrite: false,
+      alphaTest: 0.01,
     });
 
     const h = this.spriteHeight;

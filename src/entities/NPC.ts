@@ -56,14 +56,15 @@ export class NPC {
     const base = import.meta.env.BASE_URL;
     this.texture = loader.load(`${base}assets/images/${args.spriteName}.png`);
     this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.minFilter = THREE.LinearMipmapLinearFilter;
+    this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
-    this.texture.generateMipmaps = true;
+    this.texture.generateMipmaps = false;
 
     this.material = new THREE.SpriteMaterial({
       map: this.texture,
       transparent: true,
       depthWrite: false,
+      alphaTest: 0.01,
     });
 
     const h = this.spriteHeight;
