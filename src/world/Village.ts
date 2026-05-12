@@ -625,23 +625,41 @@ export class Village {
  * フォールバックする。
  */
 function makeSignTexture(text: string, bgHex: string, fgHex: string): THREE.CanvasTexture {
+  // canvas の aspect (1.8:1.1 ≒ 1.636) を看板の物理 aspect に揃え、貼った時に
+  // 文字が縦に引き伸ばされない。フォント幅は ctx.measureText で実測してから
+  // canvas に収まる最大サイズへ自動縮小する (フォントロード未完時のフォール
+  // バック幅にも追従するため固定 px では「はみ出し」が再発しやすい)。
   const canvas = document.createElement("canvas");
   canvas.width = 512;
-  canvas.height = 256;
+  canvas.height = 314;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas context が取得できません");
   // 背景
   ctx.fillStyle = bgHex;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   // 縁取り
+  const borderInset = 14;
+  const borderWidth = 14;
   ctx.strokeStyle = fgHex;
-  ctx.lineWidth = 14;
-  ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-  // テキスト
+  ctx.lineWidth = borderWidth;
+  ctx.strokeRect(
+    borderInset,
+    borderInset,
+    canvas.width - borderInset * 2,
+    canvas.height - borderInset * 2
+  );
+  // テキスト (フォントサイズを measureText で内側幅に収める)
+  const innerPad = borderInset + borderWidth + 16;
+  const maxTextWidth = canvas.width - innerPad * 2;
+  let fontSize = 96;
   ctx.fillStyle = fgHex;
-  ctx.font = "bold 88px 'Noto Sans JP', sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  do {
+    ctx.font = `bold ${fontSize}px 'Noto Sans JP', sans-serif`;
+    if (ctx.measureText(text).width <= maxTextWidth) break;
+    fontSize -= 4;
+  } while (fontSize > 32);
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
   const texture = new THREE.CanvasTexture(canvas);
   texture.anisotropy = 4;
