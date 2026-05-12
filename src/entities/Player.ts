@@ -102,8 +102,9 @@ export class Player {
     const load = (name: string): THREE.Texture => {
       const tex = loader.load(`${base}assets/images/${name}.png`);
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter = THREE.LinearFilter;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = true;
       return tex;
     };
     return {
@@ -144,8 +145,9 @@ export class Player {
     return names.map((name) => {
       const tex = loader.load(`${base}assets/images/${name}.png`);
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter = THREE.LinearFilter;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = true;
       return tex;
     });
   }
