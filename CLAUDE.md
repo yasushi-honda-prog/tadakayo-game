@@ -46,7 +46,6 @@
 - 旧 URL `https://yasushi-honda-prog.github.io/tadakayo-game/` は Stage 3 マージ前のコンテンツで凍結中、redirect 化は別 PR
 - 全 5 ミッション完走 + スコア画面 + 自己ベスト + 累計クリア + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント + コンパス + 設定 + a11y + welcome 演出 すべて稼働
 - **残課題** (別 PR、優先度順):
-  - 旧 GitHub Pages URL の HTML redirect 化
   - Firebase Hosting 自動デプロイ CI (Service Account 認証、要明示承認)
   - Collectible.ts の y 計算修正 (既存 bug、影響軽微)
   - Issue #31 (`postponed` ラベル付与済、スコープ 3 のみ: 段差エッジ snap 失敗、P2)
@@ -59,7 +58,7 @@
 
 - リポジトリ: `yasushi-honda-prog/tadakayo-game` (public)
 - 新公開 URL (現用): `https://tadakayo-game-yh.web.app/` (Firebase Hosting)
-- 旧公開 URL (凍結): `https://yasushi-honda-prog.github.io/tadakayo-game/` (Stage 3 マージ前で停止、redirect 化は別 PR)
+- 旧公開 URL (redirect 中): `https://yasushi-honda-prog.github.io/tadakayo-game/` → 新 URL へ `meta refresh` + `location.replace` で自動転送 (`redirect/index.html` + `.github/workflows/pages-redirect.yml`)
 - Firebase プロジェクト: `tadakayo-game-yh` (法人アカウント `yasushi-honda@tadakayo.jp`、organization `797660187808` 配下)
 - Firestore: `(default)` database、`asia-northeast1`、`gameRecords/{uid}` コレクション
 - Authentication: Anonymous Auth 有効化
