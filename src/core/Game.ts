@@ -447,6 +447,9 @@ export class Game {
       // NPC 近接判定 + 「E で話す」ヒント更新
       this.updateNpcsAndHint(this.player.position, dt);
 
+      // Stage 1: 目標コンパス更新 (foreground mission の次目標までの方向 + 距離)
+      this.updateCompass();
+
       // Phase 5-F: 村のアニメ (噴水・旗) + ダンス NPC
       this.village.animate(dt, this.elapsed);
       for (const d of this.danceNpcs) d.animate(dt);
@@ -618,6 +621,109 @@ export class Game {
     // 注意: NPC / DanceNpc には contact shadow を付けない。Player より遠くにいる
     // NPC の影が、視野角や距離によって「キャラの頭の上に大きく浮いて見える」違和感を
     // 引き起こすため (ユーザー実機報告 PR #19 後)。Player の足元 shadow のみ維持する。
+  }
+
+  /**
+   * Stage 1 (2026-05-13): 目標コンパスを毎フレーム更新する。
+   *
+   * - foreground mission を見て「次に行くべき XZ 座標」を決定 (`pickWaypoint`)
+   * - 画面上での相対角度 = atan2(rightComp, forwardComp) で計算
+   *   (camera.getForwardXZ / getRightXZ を内積に使う = 画面右が +、上が 0)
+   * - foreground 不在 (= 全 mission クリア) または waypoint 不在 (MetaMission のみ
+   *   残っている / dance/talk が cleared) なら null で非表示
+   */
+  private updateCompass(): void {
+    const fg = this.missions.foreground;
+    if (fg === null) {
+      this.hud.setCompass(null);
+      return;
+    }
+    const wp = this.pickWaypoint(fg);
+    if (wp === null) {
+      this.hud.setCompass(null);
+      return;
+    }
+    const p = this.player.position;
+    const dx = wp.position.x - p.x;
+    const dz = wp.position.z - p.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < 0.001) {
+      // 真上に重なっている場合は矢印を回転させない (前回値を維持)
+      this.hud.setCompass({
+        angleRad: 0,
+        label: wp.label,
+        distanceM: 0,
+      });
+      return;
+    }
+    const fwd = this.camera.getForwardXZ();
+    const right = this.camera.getRightXZ();
+    const forwardComp = dx * fwd.x + dz * fwd.z;
+    const rightComp = dx * right.x + dz * right.z;
+    // atan2(右成分, 前成分): 前=0, 右=+π/2, 左=-π/2, 後ろ=±π
+    const angleRad = Math.atan2(rightComp, forwardComp);
+    this.hud.setCompass({ angleRad, label: wp.label, distanceM: distance });
+  }
+
+  /**
+   * Stage 1: foreground mission から「次に行くべき waypoint」を決定する。
+   *
+   * 設計: Mission サブクラス側に getWaypoint() を生やすと NPC 配列依存の TalkMission が
+   * 不自然になるため、Game 側で switch (instanceof) する集約方式を採用。
+   * Mission の内部状態 (CollectMission の items, TalkMission の hasTalkedTo) は public
+   * メソッド経由でアクセス。
+   */
+  private pickWaypoint(
+    fg: Mission,
+  ): { position: { x: number; z: number }; label: string } | null {
+    if (fg instanceof CollectMission || fg.id === "collect-dx-seeds") {
+      // 未取得のうち最寄りハート
+      const p = this.player.position;
+      let best: { x: number; z: number } | null = null;
+      let bestDist = Infinity;
+      for (const c of this.collectibles) {
+        if (c.collected) continue;
+        const cp = c.object.position;
+        const d = Math.hypot(cp.x - p.x, cp.z - p.z);
+        if (d < bestDist) {
+          bestDist = d;
+          best = { x: cp.x, z: cp.z };
+        }
+      }
+      return best === null ? null : { position: best, label: "DXの種" };
+    }
+    if (fg instanceof ReachMission || fg.id === "reach-tower-top") {
+      const t = this.village.landmarks.towerTop;
+      return { position: { x: t.x, z: t.z }, label: "タダスクの塔" };
+    }
+    if (fg instanceof TalkMission || fg.id === "talk-three-voices") {
+      // 未会話 NPC のうち最寄り。codex Stage 1 review #5 対応:
+      // 「required かつ未会話」に限定し、脇役 NPC が目標化されるのを防ぐ。
+      const tm = this.talkMission;
+      if (tm === null) return null;
+      const p = this.player.position;
+      let best: { x: number; z: number; name: string } | null = null;
+      let bestDist = Infinity;
+      for (const n of this.npcs) {
+        if (!tm.isRequiredNpc(n.id)) continue;
+        if (tm.hasTalkedTo(n.id)) continue;
+        const d = Math.hypot(n.position.x - p.x, n.position.z - p.z);
+        if (d < bestDist) {
+          bestDist = d;
+          best = { x: n.position.x, z: n.position.z, name: n.displayName };
+        }
+      }
+      if (best === null) return null;
+      // ラベルは displayName の括弧前を抜き出して短く (例 "タダさん（利用者）" → "タダさん")
+      const shortName = best.name.replace(/[（(].*$/, "").trim();
+      return { position: { x: best.x, z: best.z }, label: shortName };
+    }
+    if (fg instanceof DanceMission || fg.id === "dance-tadareku") {
+      const c = this.village.landmarks.rekuCenter;
+      return { position: { x: c.x, z: c.z }, label: "タダレク広場" };
+    }
+    // MetaMission など waypoint を持たない type は null
+    return null;
   }
 
   private refreshMissionUI(): void {

@@ -64,7 +64,8 @@ html, body {
    `.hud.hidden` の opacity transition と独立して個別表示を制御する。 */
 .hud-mission.hidden,
 .hud-toast.hidden,
-.hud-action-hint.hidden {
+.hud-action-hint.hidden,
+.hud-compass.hidden {
   display: none !important;
 }
 
@@ -317,6 +318,58 @@ html, body {
   color: var(--brand-black);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* 目標方向コンパス (Stage 1):
+ * フォアグラウンドミッションの「次の目標」までの方向と距離を画面上端中央に表示。
+ * 矢印は CSS transform: rotate() で更新、距離は m 単位 (小数点なし)。
+ * - 矢印 0° = 画面上方向 (= プレイヤーから見て前)
+ * - 矢印 +90° = 画面右方向、-90° = 左
+ * - 矢印 ±180° = プレイヤーの後ろ */
+.hud-compass {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(20, 8, 18, 0.62);
+  color: var(--brand-white);
+  border-radius: 999px;
+  padding: 6px 16px 6px 10px;
+  margin-top: 6px;
+  font-size: clamp(12px, 2.6vw, 14px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.hud-compass-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--brand-primary);
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+  /* デフォルトは画面上 (=前方) を指す ▲。Game 側が rotate(deg) を transform にセット */
+  transform: rotate(0deg);
+  transition: transform 0.12s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-compass-arrow {
+    transition: none;
+  }
+}
+
+.hud-compass-label {
+  color: var(--brand-pink);
+}
+
+.hud-compass-distance {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.92;
 }
 
 .hud-toast {
@@ -752,6 +805,15 @@ html, body {
   .hud-action-hint {
     font-size: 12px;
     margin-top: 14vh;
+  }
+  .hud-compass {
+    font-size: 11px;
+    padding: 4px 12px 4px 6px;
+  }
+  .hud-compass-arrow {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
   }
   /* dialog box は仮想スティックの上に持ち上げる */
   .dialog-box {

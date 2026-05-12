@@ -28,6 +28,21 @@ export class TalkMission extends Mission {
     this.requiredIds = new Set(args.requiredNpcIds);
   }
 
+  /** 指定 NPC との会話が完了済みか (HUD コンパスの未会話最寄り NPC 検索用) */
+  hasTalkedTo(npcId: string): boolean {
+    return this.visitedIds.has(npcId);
+  }
+
+  /**
+   * 指定 NPC がこのミッションの required (会話必須) 対象か。
+   * HUD コンパスで「脇役 NPC を目標にしてしまう」誤検出を防ぐため、
+   * 未会話最寄り検索の前段フィルタとして使う。
+   * codex Stage 1 review #5 対応。
+   */
+  isRequiredNpc(npcId: string): boolean {
+    return this.requiredIds.has(npcId);
+  }
+
   /** NPC との会話完了時に Game 側から呼ぶ。 */
   notifyTalked(npcId: string): void {
     if (this.cleared) return;
