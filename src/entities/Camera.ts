@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CAMERA } from "../config/gameConfig";
+import { UserSettings } from "../config/UserSettings";
 import type { InputBus } from "../input/InputBus";
 
 /**
@@ -31,11 +32,18 @@ export class ThirdPersonCamera {
     this.camera.updateProjectionMatrix();
   };
 
-  /** 視点回転デルタを取り込む */
+  /**
+   * 視点回転デルタを取り込む。
+   * Stage 2: UserSettings.sensitivityX / sensitivityY 倍率と invertY を反映。
+   * - sensitivityX/Y は CAMERA.MOUSE_SENSITIVITY_X/Y への係数 (1.0 = 既定)
+   * - invertY=true なら dy の符号を反転 (上にマウス → カメラ pitch 上向き)
+   */
   applyLookDelta(): void {
     const { dx, dy } = this.bus.consumeLook();
-    this.yaw -= dx * CAMERA.MOUSE_SENSITIVITY_X;
-    this.pitch -= dy * CAMERA.MOUSE_SENSITIVITY_Y;
+    const s = UserSettings.instance.current;
+    this.yaw -= dx * CAMERA.MOUSE_SENSITIVITY_X * s.sensitivityX;
+    const pitchDelta = dy * CAMERA.MOUSE_SENSITIVITY_Y * s.sensitivityY;
+    this.pitch -= s.invertY ? -pitchDelta : pitchDelta;
     if (this.pitch < CAMERA.PITCH_MIN) this.pitch = CAMERA.PITCH_MIN;
     if (this.pitch > CAMERA.PITCH_MAX) this.pitch = CAMERA.PITCH_MAX;
   }
