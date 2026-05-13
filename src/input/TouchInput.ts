@@ -60,9 +60,14 @@ export class TouchInput {
     this.canvas.addEventListener("pointerup", this.onCanvasEnd);
     this.canvas.addEventListener("pointercancel", this.onCanvasEnd);
 
-    this.controls.jumpBtn.addEventListener("click", this.onJump);
-    this.controls.actionBtn.addEventListener("click", this.onAction);
-    this.controls.pauseBtn.addEventListener("click", this.onPause);
+    // ボタンは `pointerdown` で即時発火させる。理由:
+    // - `click` だと iOS Safari で「スティック (pointercapture 中) と別指 tap」の同時
+    //   タッチ時に click 発火が干渉して取りこぼされる (= 移動中ジャンプ不可)。
+    // - `pointerdown` は touch 発生瞬間に発火するためマルチタッチでも確実。
+    // - PointerEvent のデフォルト挙動を抑止して、scroll-pan や hover delay を排除する。
+    this.controls.jumpBtn.addEventListener("pointerdown", this.onJump);
+    this.controls.actionBtn.addEventListener("pointerdown", this.onAction);
+    this.controls.pauseBtn.addEventListener("pointerdown", this.onPause);
   }
 
   // ===== Stick =====
@@ -142,15 +147,22 @@ export class TouchInput {
 
   // ===== Buttons =====
 
-  private onJump = (): void => {
+  private onJump = (e: PointerEvent): void => {
+    // pointerdown のデフォルト挙動 (focus 移動、scroll 開始判定など) を抑止
+    e.preventDefault();
+    e.stopPropagation();
     this.bus.emit("jump");
   };
 
-  private onAction = (): void => {
+  private onAction = (e: PointerEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
     this.bus.emit("action");
   };
 
-  private onPause = (): void => {
+  private onPause = (e: PointerEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
     this.bus.emit("pause");
   };
 
@@ -187,9 +199,9 @@ export class TouchInput {
     this.canvas.removeEventListener("pointerup", this.onCanvasEnd);
     this.canvas.removeEventListener("pointercancel", this.onCanvasEnd);
 
-    this.controls.jumpBtn.removeEventListener("click", this.onJump);
-    this.controls.actionBtn.removeEventListener("click", this.onAction);
-    this.controls.pauseBtn.removeEventListener("click", this.onPause);
+    this.controls.jumpBtn.removeEventListener("pointerdown", this.onJump);
+    this.controls.actionBtn.removeEventListener("pointerdown", this.onAction);
+    this.controls.pauseBtn.removeEventListener("pointerdown", this.onPause);
 
     this.bus.state.moveX = 0;
     this.bus.state.moveY = 0;
