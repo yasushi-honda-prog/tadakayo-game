@@ -1,6 +1,6 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-13 (Phase 6 + 配信インフラ整備 PR #61-62 + 品質改善 PR #64-66 完了、stale PR #42 close)
+最終更新: 2026-05-13 (Phase 6 + 配信インフラ整備 PR #61-62 + 品質改善 PR #64-66 + UX hotfix セッション PR #69-71 完了、stale PR #42 close)
 
 ## 現在地点
 
@@ -8,8 +8,8 @@
 - **公開 URL (新、現用)**: https://tadakayo-game-yh.web.app/ (Firebase Hosting)
 - **公開 URL (旧、redirect 中)**: https://yasushi-honda-prog.github.io/tadakayo-game/ → 新 URL へ `meta refresh` + `location.replace` で自動転送 (`redirect/index.html` + `.github/workflows/pages-redirect.yml`)
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `9af3333`)
-- **Phase 6 ブラッシュアップ完了** ✅ (2026-05-13) + **配信インフラ整備 PR #61-62 完了** ✅ + **品質改善 PR #64-66 完了** ✅ (2026-05-13)
+- **現在ブランチ**: `main`(同期済み、最新コミット `dae85d8`)
+- **Phase 6 ブラッシュアップ完了** ✅ (2026-05-13) + **配信インフラ整備 PR #61-62 完了** ✅ + **品質改善 PR #64-66 完了** ✅ + **UX hotfix セッション PR #69-71 完了** ✅ (2026-05-13)
 - **未マージ PR**: なし (stale PR #42 は close not planned)
 
 ## Phase 6 全体総括 (2026-05-13、Stage 1-4)
@@ -68,6 +68,30 @@ Stage 1-4 完了後、Stage 3 で発生した「旧 GitHub Pages URL に古い�
 | [#66](https://github.com/yasushi-honda-prog/tadakayo-game/pull/66) | **既存 bug 真因解消**: 床面 y > 0 の収集ハート (中央広場 0.15m / タダレク広場 0.2m) が animate 開始直後に +0.15-0.2m 余分に浮上する問題を `meshBaseLocalY` (object 相対 0.6) と `baseY` (絶対 y) を明示分離して修正 (codex Stage 4 指摘) | 1 file, +22/-6 |
 
 並行して **stale PR #42 を close (not planned)**: Phase 5-I 直後の handoff 更新 PR が後続 11 PR (Phase 5-J/K/L + Phase 6 + 配信インフラ) で内容統合済み・現行 docs と整合しなくなったため。v1.0.0 タグ記録は git tag + GitHub Release + `docs/handoff/2026-05-12_phase5-L.md` で永続保全されており情報損失なし。
+
+## 品質改善後の UX hotfix セッション (2026-05-13、PR #69-71)
+
+PR #64-66 完了後、ユーザー実機プレイによる目視 hotfix を 3 連続で対応。すべて pr-review-toolkit セカンドオピニオン (code-reviewer + comment-analyzer) を経てマージ。
+
+| PR | 内容 | 変更規模 |
+|---|---|---|
+| [#69](https://github.com/yasushi-honda-prog/tadakayo-game/pull/69) | welcome toast「画面上の▲が次の目標を示します」が「示しま / す」と 1 文字孤立改行する破綻を、`\n` 明示 + `.hud-toast.welcome { white-space: pre-line }` で 2 行固定 | 2 files, +5/-1 |
+| [#70](https://github.com/yasushi-honda-prog/tadakayo-game/pull/70) | favicon 空 (`data:,`) を解消。`tadakayo-front-idle.png` ヘッドフォン込み 440x440 正方形クロップ + Pillow Lanczos で `favicon.ico` (16/32/48 マルチサイズ) / `favicon-32.png` / `apple-touch-icon.png` (180x180) を生成 (`scripts/generate-favicon.py`) | 5 files, +57/-2 |
+| [#71](https://github.com/yasushi-honda-prog/tadakayo-game/pull/71) | NPC 服透け + elder ベンチ貫通の 2 件真因対応。`remove-checker-bg.py` の 4 隅 BFS が拾わない閉じ領域を `scripts/fill-sprite-internal-holes.py` で白 fill (npc-elder/-nurse/-manager で 1.5-4.6% の透明 hole 解消)。elder NPC 位置を `(15.4, 0, 4)` → `(15.4, 0, 5.5)` に z+1.5m してビルボード sprite のベンチ貫通を回避 | 5 files, +99/-12 (累計) |
+
+### pr-review-toolkit セカンドオピニオン
+
+| PR | code-reviewer | comment-analyzer | 反映 |
+|---|---|---|---|
+| #69 | Critical/Important なし | n/a (CSS 微小) | そのままマージ |
+| #70 | Critical/Important なし、Suggestion 5 件 (rating <7) | rating 8/10 → I-1/I-2 反映で 9/10 | docstring 誇張表現 + comment rot プロトコル追記で reroll |
+| #71 | Critical/Important なし、Suggestion 6 件 | rating 8/10 → I-1/I-2/I-3 反映で 9-10/10 | JSDoc を forward-looking 制約に書き直し + 数値 rot を categorical 化 + script docstring に前提条件 (白系 hole 専用 / glob 禁止) を追記 |
+
+### 構造的に得られた知見
+
+1. **`scripts/remove-checker-bg.py` の 4 隅 BFS は閉じ領域を取りこぼす** — title-logo (PR #50) と NPC (PR #71) で同じ症状が再発した。一般化された対策スクリプトとして `fill-sprite-internal-holes.py` (内部透明→白) と `fix-title-logo-checker.py` (内部白→透明) のペアでパイプライン化済み。新キャラ追加時は両スクリプトの適用要否を判断すること。
+2. **ビルボード sprite と床立ち static collider は xz 完全一致を避ける** — `Game.ts:setupNpcs` JSDoc に「ベンチ z=4 から 1m 以上離す」forward-looking 制約を記述。NPC 追加時の同類事故予防。
+3. **favicon は static asset として `public/` 直下に置く + `vite.config.ts` `base: "/"` 配下で `/favicon.ico` 絶対パス指定が安定** — Firebase Hosting に統一済の現環境では `dist/` 直下に自動コピーされ、`firebase.json` の `headers` は `/assets/**` のみに immutable cache を当てて favicon は Firebase デフォルト 1h cache でアイコン差替も素早く反映可能。
 
 ## アーキテクチャ概要 (Phase 6 完了時点)
 
@@ -174,6 +198,7 @@ PR #64-#66 で旧 #1 (Collectible y) / #3 (Anonymous UID docs) / #4 (UserMotion 
 | **6 Stage 4** | prefers-reduced-motion + オープニング演出 | ✅ | PR #59 |
 | **6 配信インフラ** | 旧 GH Pages redirect + Firebase Hosting 自動デプロイ workflow | ✅ | PR #61-62 |
 | **6 品質改善** | README データ保存 docs + UserMotion dispose + Collectible y bug 修正 | ✅ | PR #64-66 |
+| **6 UX hotfix** | welcome toast 改行 + favicon + NPC 服透け + elder ベンチ貫通 | ✅ | PR #69-71 |
 
 詳細な Phase 5 系の旧 handoff: `docs/handoff/2026-05-12_phase5-L.md` 参照。
 
