@@ -47,6 +47,10 @@
 - 全 5 ミッション完走 + スコア画面 + 自己ベスト + 累計クリア + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント + コンパス + 設定 + a11y + welcome 演出 すべて稼働
 - **Phase 6 配信インフラ整備 完了** ✅ (2026-05-13): PR #61 (旧 GH Pages → 新 URL redirect) + PR #62 (`main` push → Firebase Hosting 自動デプロイ workflow、最小権限 SA + Secrets 設定)
 - **Phase 6 品質改善 完了** ✅ (2026-05-13): PR #64 (README に Anonymous UID 永続性 docs) + PR #65 (UserMotion `dispose()` で matchMedia listener cleanup) + PR #66 (Collectible y 計算 bug 真因修正: 床面 y > 0 のハートが +0.15-0.2m 余分浮上していた問題を解消)
+- **Phase 6 UX hotfix セッション 完了** ✅ (2026-05-13、PR #69-71): ユーザー実機目視 hotfix 3 件:
+  - PR #69 welcome toast 1 文字孤立改行を `\n` + `white-space: pre-line` で 2 行固定
+  - PR #70 空 favicon を解消、`scripts/generate-favicon.py` で front-idle のヘッドフォン込みクロップから `favicon.ico` / `favicon-32.png` / `apple-touch-icon.png` を生成
+  - PR #71 NPC 服透け (npc-elder/-nurse/-manager で 1.5-4.6% の透明 hole) を `scripts/fill-sprite-internal-holes.py` (4 隅 BFS + 内部白 fill) で解消 + elder NPC 位置 `(15.4, 0, 4)` → `(15.4, 0, 5.5)` でビルボード sprite のベンチ貫通を回避。`Game.ts:setupNpcs` JSDoc に「ベンチ z=4 から 1m 以上離す」forward-looking 制約を追記
 - **残課題** (別 PR、優先度順):
   - Issue #31 (`postponed` ラベル付与済、スコープ 3 のみ: 段差エッジ snap 失敗、P2)
   - Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
