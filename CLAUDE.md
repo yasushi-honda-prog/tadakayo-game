@@ -51,6 +51,13 @@
   - PR #69 welcome toast 1 文字孤立改行を `\n` + `white-space: pre-line` で 2 行固定
   - PR #70 空 favicon を解消、`scripts/generate-favicon.py` で front-idle のヘッドフォン込みクロップから `favicon.ico` / `favicon-32.png` / `apple-touch-icon.png` を生成
   - PR #71 NPC 服透け (npc-elder/-nurse/-manager で 1.5-4.6% の透明 hole) を `scripts/fill-sprite-internal-holes.py` (4 隅 BFS + 内部白 fill) で解消 + elder NPC 位置 `(15.4, 0, 4)` → `(15.4, 0, 5.5)` でビルボード sprite のベンチ貫通を回避。`Game.ts:setupNpcs` JSDoc に「ベンチ z=4 から 1m 以上離す」forward-looking 制約を追記
+- **Phase 6 iPhone 音/操作 hotfix セッション 完了** ✅ (2026-05-13、PR #73-77): iPhone 実機検証起点の 2 件 hotfix + 整理 PR。
+  - **真因 (2 つ)**: ①村 BGM/SE が `.ogg` で iOS Safari Web Audio `decodeAudioData()` が OGG Vorbis 非対応 (Safari 18.4+ でも `<audio>` 要素経由のみ、Web Audio 経路は 2026 年現在も不可) → PR #76 で MP3 変換、②端末側面サイレントスイッチ ON (ユーザー側で OFF にして解決)
+  - **真因 fix (PR #74 操作 + PR #76 音)**:
+    - PR #74 TouchInput `click` → `pointerdown`: 仮想スティック pointercapture 中の右下ボタンが iOS マルチタッチで `click` 取りこぼされる問題を即時発火に変更、`preventDefault()` + `stopPropagation()` 併用
+    - PR #76 7 ファイル OGG → MP3 変換 (`ffmpeg -c:a libmp3lame -q:a 4`): `bgm-village.ogg` + se 6 個。`bgm-dance.mp3` は元から MP3 で影響なし
+  - **試行錯誤痕跡 (PR #73/#75 + PR #74 の suspended セーフティネット) は PR #77 で整理削除** (AudioManager.ts -81 行 / silent.mp3 -748 bytes)。教訓は global memory に保存: ①iPhone 音問題は最初に AskUserQuestion で端末側面確認 ②iOS Safari Web Audio は OGG decode 不可 ③同一機能 3 連続失敗で元設計再レビュー (CLAUDE.md MUST 補強)
+  - **音 asset 構成**: 全 8 ファイル MP3 統一 (bgm-village.mp3 / bgm-dance.mp3 / se-{pickup,mission-clear,jump,land,dialog-open,dialog-next}.mp3)。iOS Safari Web Audio で確実に decode される
 - **残課題** (別 PR、優先度順):
   - Issue #31 (`postponed` ラベル付与済、スコープ 3 のみ: 段差エッジ snap 失敗、P2)
   - Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
