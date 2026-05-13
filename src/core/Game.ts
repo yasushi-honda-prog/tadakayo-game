@@ -557,12 +557,16 @@ export class Game {
 
   /**
    * Phase 5-D の NPC 3 体を村に配置する。
-   * - 高齢者: タダレク広場のベンチ近く (15.4, 0, 4)
+   * - 高齢者: タダレク広場のベンチの南側 (15.4, 0, 5.5)
+   *   西側ベンチが (15.4, 0.5, 4) (座面 0.8×0.22m) にあり、ビルボード
+   *   sprite (約 1m 幅) と xz が近すぎると腰の高さで貫通描画される。
+   *   z は 4 から 1m 以上離すこと（近接判定の半径 2m 内に Player が
+   *   入れる距離は維持）。
    * - 看護師: タダコミュ会館の入口前 (landmarks.hallEntrance)
    * - 施設長: 中央広場の南東 (3, 0, 3)
    */
   private setupNpcs(): void {
-    const elderPos = new THREE.Vector3(15.4, 0, 4);
+    const elderPos = new THREE.Vector3(15.4, 0, 5.5);
     const nursePos = this.village.landmarks.hallEntrance.clone();
     const managerPos = new THREE.Vector3(3, 0, 3);
 
