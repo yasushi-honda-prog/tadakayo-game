@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#e33535" />
-    <link rel="icon" href="data:," />
+    <!-- Favicon: タダカヨちゃん顔 (front-idle からヘッドフォン込み正方形クロップ + Lanczos 縮小、scripts/generate-favicon.py) -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <!-- Phase 5-F preload: Player 14 + NPC 3 + Player dance 4 = 21 sprite を先にブラウザキャッシュへ。
          Three.js TextureLoader が瞬時に解決し、スタート直後のチラつき / 出現遅延を解消 -->
     <link rel="preload" as="image" crossorigin="anonymous" href="./assets/images/tadakayo-front-dance-1.png" />
