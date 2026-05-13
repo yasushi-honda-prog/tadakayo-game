@@ -1,6 +1,6 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-13 (Phase 6 ブラッシュアップ Stage 1-4 + 配信インフラ整備 PR #61-62 完了)
+最終更新: 2026-05-13 (Phase 6 + 配信インフラ整備 PR #61-62 + 品質改善 PR #64-66 完了、stale PR #42 close)
 
 ## 現在地点
 
@@ -8,9 +8,9 @@
 - **公開 URL (新、現用)**: https://tadakayo-game-yh.web.app/ (Firebase Hosting)
 - **公開 URL (旧、redirect 中)**: https://yasushi-honda-prog.github.io/tadakayo-game/ → 新 URL へ `meta refresh` + `location.replace` で自動転送 (`redirect/index.html` + `.github/workflows/pages-redirect.yml`)
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `d640c09`)
-- **Phase 6 ブラッシュアップ完了** ✅ (2026-05-13) + **配信インフラ整備 PR #61-62 完了** ✅
-- **未マージ PR**: なし
+- **現在ブランチ**: `main`(同期済み、最新コミット `9af3333`)
+- **Phase 6 ブラッシュアップ完了** ✅ (2026-05-13) + **配信インフラ整備 PR #61-62 完了** ✅ + **品質改善 PR #64-66 完了** ✅ (2026-05-13)
+- **未マージ PR**: なし (stale PR #42 は close not planned)
 
 ## Phase 6 全体総括 (2026-05-13、Stage 1-4)
 
@@ -57,6 +57,18 @@ Stage 1-4 完了後、Stage 3 で発生した「旧 GitHub Pages URL に古い�
 
 両 PR とも `FirebaseExtended/action-hosting-deploy@v0` や Pages workflow に `run:` ステップを含めず injection 面ゼロ、permissions 最小、`paths-ignore` で docs / redirect 専用 PR では deploy をスキップする設計。
 
+## 配信インフラ整備後の品質改善 (2026-05-13、PR #64-#66)
+
+配信インフラ整備後、codex Stage 3-4 の Low 指摘 3 件を消化する小規模 PR を 3 本マージ。各 PR は base=main / 1 file / <30 行で、typecheck + build 全 PASS。
+
+| PR | 内容 | 変更規模 |
+|---|---|---|
+| [#64](https://github.com/yasushi-honda-prog/tadakayo-game/pull/64) | README に「データ保存とアカウント」セクション追加。Anonymous Auth UID の永続性仕様 (ブラウザクリア / 別端末で記録に戻れない) を明記 (codex Stage 3 Low #4) | 1 file, +25/-0 |
+| [#65](https://github.com/yasushi-honda-prog/tadakayo-game/pull/65) | UserMotion に matchMedia listener 解除可能な `dispose()` メソッドを追加。`_reset()` で dispose を経由してインスタンスを破棄するよう変更し、test / HMR cleanup を構造的に整備 (codex Stage 4 Low) | 1 file, +24/-2 |
+| [#66](https://github.com/yasushi-honda-prog/tadakayo-game/pull/66) | **既存 bug 真因解消**: 床面 y > 0 の収集ハート (中央広場 0.15m / タダレク広場 0.2m) が animate 開始直後に +0.15-0.2m 余分に浮上する問題を `meshBaseLocalY` (object 相対 0.6) と `baseY` (絶対 y) を明示分離して修正 (codex Stage 4 指摘) | 1 file, +22/-6 |
+
+並行して **stale PR #42 を close (not planned)**: Phase 5-I 直後の handoff 更新 PR が後続 11 PR (Phase 5-J/K/L + Phase 6 + 配信インフラ) で内容統合済み・現行 docs と整合しなくなったため。v1.0.0 タグ記録は git tag + GitHub Release + `docs/handoff/2026-05-12_phase5-L.md` で永続保全されており情報損失なし。
+
 ## アーキテクチャ概要 (Phase 6 完了時点)
 
 ```
@@ -101,15 +113,14 @@ firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage
 
 ## 残課題 (別 PR、優先度順)
 
+PR #64-#66 で旧 #1 (Collectible y) / #3 (Anonymous UID docs) / #4 (UserMotion listener) を消化済み。残るのは要件整理が必要な低優先度項目のみ。
+
 | # | 項目 | 重要度 | 備考 |
 |---|---|---|---|
-| 1 | **Collectible.ts の y 計算修正** | 低 | codex Stage 4 で指摘された既存 bug (床上ハートが余分に 0.15m 高浮遊)。視覚影響軽微で本番運用許容範囲 |
-| 2 | **Issue #31 (段差 snap 失敗)** | 低 | `postponed` ラベル付き、ユーザー明示指示時のみ着手 |
-| 3 | **Anonymous UID 永続性のドキュメント化** | 低 | ブラウザクリア / 別端末では記録に戻れない仕様を README / docs に明記 (codex Stage 3 Low #4) |
-| 4 | **UserMotion の matchMedia change listener 解除** | 低 | singleton 実害なし、HMR/test 時の cleanup を整える程度 (codex Stage 4 Low) |
-| 5 | **Firebase Firestore のバックアップ (PITR)** | 低 | プロジェクト規模上必須ではないが、規模拡大時に検討 |
-| 6 | **PR preview channel 対応** | 低 | `firebase-hosting.yml` を PR open 時にも起動して preview URL を PR コメントに出す。外部 fork PR の secrets 不可制約と要件整理が必要 |
-| 7 | **Workload Identity Federation 移行** | 低 | 現状 SA JSON key で運用。ismap 準拠強化のため WIF へ移行 (`google-github-actions/auth@v2` の workload_identity_provider に置換) |
+| 1 | **Issue #31 (段差 snap 失敗)** | 低 | `postponed` ラベル付き、ユーザー明示指示時のみ着手 |
+| 2 | **Firebase Firestore のバックアップ (PITR)** | 低 | プロジェクト規模上必須ではないが、規模拡大時に検討 |
+| 3 | **PR preview channel 対応** | 低 | `firebase-hosting.yml` を PR open 時にも起動して preview URL を PR コメントに出す。外部 fork PR の secrets 不可制約と要件整理が必要 |
+| 4 | **Workload Identity Federation 移行** | 低 | 現状 SA JSON key で運用。ismap 準拠強化のため WIF へ移行 (`google-github-actions/auth@v2` の workload_identity_provider に置換) |
 
 ## 次セッションで最初にやること
 
@@ -161,6 +172,8 @@ firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage
 | **6 Stage 2** | 設定強化 (感度/反転/音量/永続化) | ✅ | PR #57 |
 | **6 Stage 3** | Firestore + Firebase Hosting 移行 | ✅ | PR #58、ADR-2026-05-13 |
 | **6 Stage 4** | prefers-reduced-motion + オープニング演出 | ✅ | PR #59 |
+| **6 配信インフラ** | 旧 GH Pages redirect + Firebase Hosting 自動デプロイ workflow | ✅ | PR #61-62 |
+| **6 品質改善** | README データ保存 docs + UserMotion dispose + Collectible y bug 修正 | ✅ | PR #64-66 |
 
 詳細な Phase 5 系の旧 handoff: `docs/handoff/2026-05-12_phase5-L.md` 参照。
 
