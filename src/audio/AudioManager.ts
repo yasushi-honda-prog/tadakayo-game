@@ -58,10 +58,12 @@ export class AudioManager {
 
   async ensureStarted(): Promise<void> {
     if (this.ctx) {
-      // iOS Safari: resume は await せず即時返す (user gesture sync を維持するため)。
-      // backgrounding 復帰時にも呼ばれるが、await すると次の同期処理が user gesture
-      // 外に逃げて再 unlock 失敗するケースがあった。
-      if (this.ctx.state === "suspended") void this.ctx.resume();
+      // 再エントリ (タイトル復帰など) で suspended なら resume を await する。
+      // PR #73 で void に変えたが、preloadAll 後の startBgm() 時点で suspended の
+      // ままだと source.start() が無音化する端末があり、await で確実に running まで待つ。
+      if (this.ctx.state === "suspended") {
+        try { await this.ctx.resume(); } catch { /* ignore */ }
+      }
       return;
     }
     const AC =
@@ -70,11 +72,12 @@ export class AudioManager {
     this.ctx = new AC();
 
     // iOS Safari unlock: AudioContext 生成直後に user gesture 同期内で 1 サンプルの
-    // 無音 buffer を start() することで「unlocked」状態へ遷移させる。これを行わないと、
-    // iOS では state==="running" であっても出力が無音のままになる端末がある (Pixel/
-    // Android では不要だが副作用なし)。
+    // 無音 buffer を start() することで「unlocked」状態へ遷移させる。
+    // - sampleRate は **必ず ctx.sampleRate に合わせる** (22050 固定だと一部端末で
+    //   ratio 不一致により start() が無視されるケースあり、PR #73 補強)
+    // - 副作用: Android / Desktop ではただの no-op
     try {
-      const silent = this.ctx.createBuffer(1, 1, 22050);
+      const silent = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
       const src = this.ctx.createBufferSource();
       src.buffer = silent;
       src.connect(this.ctx.destination);
@@ -109,9 +112,13 @@ export class AudioManager {
       }
     });
 
-    // iOS Safari: await すると user gesture sync を抜けるため fire-and-forget。
-    // resume() Promise の解決は preloadAll() より先に走るのでバッファ再生時には完了済み。
-    if (this.ctx.state === "suspended") void this.ctx.resume();
+    // PR #73 では void にしていたが、preloadAll() 完了時 (= 最初の音再生時) に
+    // suspended のまま source.start() が呼ばれて無音化するケースがあるため await に
+    // 戻す。silent buffer unlock は既に上で同期実行済みで user gesture を消費しているので、
+    // ここでの await は user gesture 切れ問題を起こさない (running 移行を待つだけ)。
+    if (this.ctx.state === "suspended") {
+      try { await this.ctx.resume(); } catch { /* ignore */ }
+    }
 
     // 全音源を非同期 decode (UI ブロックしない)
     void this.preloadAll();
@@ -191,6 +198,9 @@ export class AudioManager {
       this.fallbackTone(key);
       return;
     }
+    // iOS Safari セーフティネット: suspended のまま start() すると無音化するため
+    // resume を fire-and-forget で試す
+    if (this.ctx.state === "suspended") void this.ctx.resume();
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     const g = this.ctx.createGain();
@@ -244,6 +254,9 @@ export class AudioManager {
       this.bgmPendingStart = true;
       return;
     }
+    // iOS Safari セーフティネット: 何らかの理由で suspended のまま到達した場合、
+    // resume を fire-and-forget で試す (no-op が安全)。
+    if (this.ctx.state === "suspended") void this.ctx.resume();
     const src = this.ctx.createBufferSource();
     src.buffer = this.bgmBuffer;
     src.loop = true;
