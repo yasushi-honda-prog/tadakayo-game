@@ -4,19 +4,20 @@ import { UserSettings } from "../config/UserSettings";
 /**
  * SE/BGM の再生管理。
  *
- * Phase 5-D 改修: 外部フリー素材 (kenney.nl Interface Sounds + Music Jingles, CC0)
- * を Web Audio で decode して再生する。decode 失敗時は内部合成 fallback。
+ * 外部フリー素材を Web Audio で decode して再生する。decode 失敗時は内部合成 fallback。
  *
  * 素材クレジット:
  * - SE: Kenney Interface Sounds (CC0, kenney.nl)
  * - BGM (village): Kenney Music Jingles - Pizzicato (CC0, kenney.nl)
  * - BGM (dance): "Karma" by Michael Ramir C. (Mixkit License, mixkit.co - 商用利用可)
  *
- * **iOS Safari 対応 (PR #76)**:
- * - SE / 村 BGM は **MP3** (元 OGG)。iOS Safari の `decodeAudioData()` は OGG Vorbis を
- *   サポートしないため (Safari 18.5+ でも <audio> 要素経由のみ、Web Audio 経由は不可)。
- * - 初回ユーザー操作で AudioContext.resume + silent buffer unlock + HTMLAudioElement
- *   セッションカテゴリ昇格を行う (詳細は ensureStarted / startHtmlAudioUnlock)。
+ * iOS Safari 対応:
+ * - SE / 村 BGM は MP3 必須。iOS Safari の `decodeAudioData()` は OGG Vorbis 非対応
+ *   (Safari 18.5+ でも `<audio>` 要素経由のみ、Web Audio 経由は不可)。
+ * - 初回ユーザー操作で AudioContext.resume() + 1 サンプル無音 buffer の start() で
+ *   unlock する (詳細は ensureStarted)。
+ * - 端末側面サイレントスイッチ ON 時は iOS 仕様により全 Web Audio 出力が無音化する。
+ *   これはアプリ側で回避すべきではない (ユーザー意図のミュート尊重)。
  */
 type SoundKey = "pickup" | "missionClear" | "jump" | "land" | "dialogNext" | "dialogOpen";
 
@@ -54,14 +55,6 @@ export class AudioManager {
   /** Stage 2: UserSettings.onChange の解除関数 (dispose 時に呼ぶ) */
   private settingsUnsub: (() => void) | null = null;
 
-  /**
-   * iOS Safari silent switch bypass 用 HTMLAudioElement。
-   * 端末側面のサイレントスイッチが ON の場合、AudioContext は「ambient」セッション
-   * カテゴリでミュートされる。`<audio playsinline>` を一度 play() するとセッションが
-   * 「playback」に切り替わり、silent switch ON でも音が再生される (iOS 慣用 hack)。
-   */
-  private htmlAudioUnlock: HTMLAudioElement | null = null;
-
   constructor() {
     // mute は旧キーを直接読む (UserSettings も同じキーを参照するため両者は一致)
     const stored = localStorage.getItem(STORAGE_KEYS.AUDIO_MUTED);
@@ -69,15 +62,8 @@ export class AudioManager {
   }
 
   async ensureStarted(): Promise<void> {
-    // iOS Safari silent switch bypass: user gesture 同期内で <audio playsinline> を
-    // play() し、オーディオセッションを ambient → playback に切り替える。
-    // **必ず AudioContext 生成より先に実行する** (順序が逆だとセッション切替が効かない端末あり)。
-    this.startHtmlAudioUnlock();
-
     if (this.ctx) {
-      // 再エントリ (タイトル復帰など) で suspended なら resume を await する。
-      // PR #73 で void に変えたが、preloadAll 後の startBgm() 時点で suspended の
-      // ままだと source.start() が無音化する端末があり、await で確実に running まで待つ。
+      // 再エントリ (タイトル復帰など) で suspended なら resume を確実に待つ。
       if (this.ctx.state === "suspended") {
         try { await this.ctx.resume(); } catch { /* ignore */ }
       }
@@ -89,10 +75,7 @@ export class AudioManager {
     this.ctx = new AC();
 
     // iOS Safari unlock: AudioContext 生成直後に user gesture 同期内で 1 サンプルの
-    // 無音 buffer を start() することで「unlocked」状態へ遷移させる。
-    // - sampleRate は **必ず ctx.sampleRate に合わせる** (22050 固定だと一部端末で
-    //   ratio 不一致により start() が無視されるケースあり、PR #73 補強)
-    // - 副作用: Android / Desktop ではただの no-op
+    // 無音 buffer を start() し「unlocked」状態へ遷移させる。Android / Desktop では no-op。
     try {
       const silent = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
       const src = this.ctx.createBufferSource();
@@ -129,54 +112,15 @@ export class AudioManager {
       }
     });
 
-    // PR #73 では void にしていたが、preloadAll() 完了時 (= 最初の音再生時) に
-    // suspended のまま source.start() が呼ばれて無音化するケースがあるため await に
-    // 戻す。silent buffer unlock は既に上で同期実行済みで user gesture を消費しているので、
-    // ここでの await は user gesture 切れ問題を起こさない (running 移行を待つだけ)。
+    // silent buffer unlock で user gesture を消費済みのため、ここでの await は
+    // user gesture 切れを起こさず running 移行を待つだけ。preloadAll() 完了時の
+    // source.start() で確実に音が出ることを保証する。
     if (this.ctx.state === "suspended") {
       try { await this.ctx.resume(); } catch { /* ignore */ }
     }
 
     // 全音源を非同期 decode (UI ブロックしない)
     void this.preloadAll();
-  }
-
-  /**
-   * iOS Safari silent switch bypass.
-   *
-   * 端末側面のサイレントスイッチが ON の場合、Safari の AudioContext は
-   * 「ambient」セッションカテゴリで強制ミュートされる (Web Audio がスピーカーから
-   * 出ない)。これを回避するには、user gesture 同期内で `<audio playsinline>` を
-   * 1 度 play() してオーディオセッションを「playback」カテゴリへ昇格させる必要がある。
-   *
-   * - silent.mp3 (0.1 秒, 32kbps 無音 MP3, 748 bytes) を src に使用 (data URL より
-   *   Safari の互換性が高い)
-   * - volume は 1.0 のまま (中身が無音なのでスピーカーには何も出ない)
-   * - **複数回呼ばれても 1 回しか走らない** (htmlAudioUnlock が non-null チェック)
-   * - 失敗時は静かに無視 (AudioContext unlock 単独でも動く端末は多い)
-   */
-  private startHtmlAudioUnlock(): void {
-    if (this.htmlAudioUnlock) return;
-    try {
-      const el = document.createElement("audio");
-      // iOS Safari 必須属性
-      el.setAttribute("playsinline", "");
-      el.setAttribute("webkit-playsinline", "");
-      el.preload = "auto";
-      const base = import.meta.env.BASE_URL;
-      el.src = `${base}assets/audio/silent.mp3`;
-      el.loop = false;
-      const p = el.play();
-      if (p && typeof p.then === "function") {
-        p.then(() => {
-          // 再生に成功したら一旦止めて待機 (セッションカテゴリは既に変更済)
-          try { el.pause(); el.currentTime = 0; } catch { /* ignore */ }
-        }).catch(() => { /* user gesture 外なら NotAllowedError、無視 */ });
-      }
-      this.htmlAudioUnlock = el;
-    } catch {
-      /* element 作成自体が失敗するケースは無視 */
-    }
   }
 
   /** Stage 2: BGM 系 gain に bgmVolume 係数を反映 (ducking 中は VILLAGE_DUCK_GAIN を優先) */
@@ -253,9 +197,6 @@ export class AudioManager {
       this.fallbackTone(key);
       return;
     }
-    // iOS Safari セーフティネット: suspended のまま start() すると無音化するため
-    // resume を fire-and-forget で試す
-    if (this.ctx.state === "suspended") void this.ctx.resume();
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     const g = this.ctx.createGain();
@@ -309,9 +250,6 @@ export class AudioManager {
       this.bgmPendingStart = true;
       return;
     }
-    // iOS Safari セーフティネット: 何らかの理由で suspended のまま到達した場合、
-    // resume を fire-and-forget で試す (no-op が安全)。
-    if (this.ctx.state === "suspended") void this.ctx.resume();
     const src = this.ctx.createBufferSource();
     src.buffer = this.bgmBuffer;
     src.loop = true;
@@ -377,11 +315,6 @@ export class AudioManager {
     }
     this.stopBgm();
     this.stopDanceBgm();
-    if (this.htmlAudioUnlock) {
-      try { this.htmlAudioUnlock.pause(); } catch { /* ignore */ }
-      this.htmlAudioUnlock.removeAttribute("src");
-      this.htmlAudioUnlock = null;
-    }
     if (this.ctx) {
       this.ctx.close().catch(() => {});
       this.ctx = null;
