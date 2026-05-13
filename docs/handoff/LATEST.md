@@ -1,6 +1,6 @@
 # タダカヨ村 3D オープンワールド — セッションハンドオフ
 
-最終更新: 2026-05-13 (Phase 6 + 配信インフラ整備 PR #61-62 + 品質改善 PR #64-66 + UX hotfix セッション PR #69-71 完了、stale PR #42 close)
+最終更新: 2026-05-13 (Phase 6 全 Stage + 配信インフラ + 品質改善 + UX hotfix + **iPhone 音/操作 hotfix セッション PR #73-77** 完了)
 
 ## 現在地点
 
@@ -8,8 +8,8 @@
 - **公開 URL (新、現用)**: https://tadakayo-game-yh.web.app/ (Firebase Hosting)
 - **公開 URL (旧、redirect 中)**: https://yasushi-honda-prog.github.io/tadakayo-game/ → 新 URL へ `meta refresh` + `location.replace` で自動転送 (`redirect/index.html` + `.github/workflows/pages-redirect.yml`)
 - **作業ディレクトリ**: `/Users/yyyhhh/Projects/tadakayo/game-ai`
-- **現在ブランチ**: `main`(同期済み、最新コミット `dae85d8`)
-- **Phase 6 ブラッシュアップ完了** ✅ (2026-05-13) + **配信インフラ整備 PR #61-62 完了** ✅ + **品質改善 PR #64-66 完了** ✅ + **UX hotfix セッション PR #69-71 完了** ✅ (2026-05-13)
+- **現在ブランチ**: `main` (同期済み、最新コミット `4d39702`)
+- **Phase 6 全完了** ✅ (2026-05-13): ブラッシュアップ Stage 1-4 + 配信インフラ PR #61-62 + 品質改善 PR #64-66 + UX hotfix PR #69-71 + **iPhone 音/操作 hotfix PR #73-77**
 - **未マージ PR**: なし (stale PR #42 は close not planned)
 
 ## Phase 6 全体総括 (2026-05-13、Stage 1-4)
@@ -92,6 +92,49 @@ PR #64-66 完了後、ユーザー実機プレイによる目視 hotfix を 3 �
 1. **`scripts/remove-checker-bg.py` の 4 隅 BFS は閉じ領域を取りこぼす** — title-logo (PR #50) と NPC (PR #71) で同じ症状が再発した。一般化された対策スクリプトとして `fill-sprite-internal-holes.py` (内部透明→白) と `fix-title-logo-checker.py` (内部白→透明) のペアでパイプライン化済み。新キャラ追加時は両スクリプトの適用要否を判断すること。
 2. **ビルボード sprite と床立ち static collider は xz 完全一致を避ける** — `Game.ts:setupNpcs` JSDoc に「ベンチ z=4 から 1m 以上離す」forward-looking 制約を記述。NPC 追加時の同類事故予防。
 3. **favicon は static asset として `public/` 直下に置く + `vite.config.ts` `base: "/"` 配下で `/favicon.ico` 絶対パス指定が安定** — Firebase Hosting に統一済の現環境では `dist/` 直下に自動コピーされ、`firebase.json` の `headers` は `/assets/**` のみに immutable cache を当てて favicon は Firebase デフォルト 1h cache でアイコン差替も素早く反映可能。
+
+## UX hotfix 後の iPhone 音/操作 hotfix セッション (2026-05-13、PR #73-77)
+
+PR #69-71 完了後、ユーザー実機 (iPhone) 検証で 2 件の hotfix。操作問題は典型 fix で 1 PR 完了、音問題はコード仮説に飛びついて **4 連続失敗** の後に真因到達 → 整理 PR で過剰防御削除という重要な教訓を含む。
+
+| PR | 内容 | 結果 | 変更規模 |
+|---|---|---|---|
+| [#73](https://github.com/yasushi-honda-prog/tadakayo-game/pull/73) | iOS Safari silent buffer unlock + `await ctx.resume()` を `void` 化 | ❌ 音未解決、後に `await` 復元・コメント整理 | 1 file, +22/-2 |
+| [#74](https://github.com/yasushi-honda-prog/tadakayo-game/pull/74) | **TouchInput `click` → `pointerdown` (✅ 操作の真の fix)** + AudioManager sampleRate 動的化 + suspended セーフティネット (後者は #77 で削除) | ⭕ 操作問題解決、❌ 音は依然鳴らず | 2 files, +45/-20 |
+| [#75](https://github.com/yasushi-honda-prog/tadakayo-game/pull/75) | HTMLAudioElement + silent.mp3 で iOS サイレントスイッチ bypass | ❌ 音未解決、副作用持ち (後に #77 で削除) | 2 files, +56/-0 |
+| **[#76](https://github.com/yasushi-honda-prog/tadakayo-game/pull/76)** | **`bgm-village.ogg` + SE 6 個を MP3 へ変換 (iOS Safari Web Audio `decodeAudioData()` は OGG Vorbis 非対応)** | ⭕ **真因 fix** | 16 files, +13/-9 |
+| **[#77](https://github.com/yasushi-honda-prog/tadakayo-game/pull/77)** | **PR #74/#75 の過剰防御整理** (HTMLAudioElement + silent.mp3 削除、suspended セーフティネット削除、試行錯誤コメント整理) | ⭕ 整理 | 3 files, +14/-81 |
+
+### 音問題の真因 (2 つ)
+
+1. **村 BGM/SE が `.ogg` で iOS Safari Web Audio が decode 不可**: iOS Safari の `decodeAudioData()` は OGG Vorbis 非対応 (Safari 18.4+ で `<audio>` 要素経由は OK、Web Audio 経路は 2026 年現在も不可)。PC / Android では decode できるため開発時に気づきにくい。PR #76 で MP3 変換。
+2. **端末側面サイレントスイッチ ON**: アプリ側で回避すべきでない (ユーザー意図のミュート尊重)。ユーザー側で OFF に切替で解決。
+
+### 操作問題の真因
+
+仮想スティック (pointercapture 中) と右下ボタン (右指) のマルチタッチで `click` イベントが iOS Safari で取りこぼされる → `pointerdown` で即時発火させ `preventDefault()` + `stopPropagation()` 併用で確実取得 (PR #74)。
+
+### 構造的に得られた教訓 (global memory に保存済み)
+
+1. **iPhone/iOS 音問題は最初に端末側面サイレントスイッチを `AskUserQuestion` で確認** — `~/.claude/memory/feedback_ios_audio_first_check_silent_switch.md`。コード仮説より先に端末側情報を取る。
+2. **iOS Safari Web Audio `decodeAudioData()` は OGG Vorbis 非対応** — `~/.claude/memory/reference_ios_safari_web_audio_formats.md`。ゲーム / 音声 Web アプリは MP3 / AAC / WAV を採用。
+3. **同一機能 3 連続失敗時は元設計を再レビュー (CLAUDE.md MUST の実践補強)** — `~/.claude/memory/feedback_consecutive_failure_redesign.md`。本セッションでは 4 連続失敗まで実践できず、教訓として明文化。
+
+### 音 asset 構成 (整理後)
+
+```
+public/assets/audio/
+├── bgm-village.mp3       # Kenney Music Jingles - Pizzicato (CC0)、村 BGM
+├── bgm-dance.mp3         # Mixkit "Karma" by Michael Ramir C.、ダンス BGM
+├── se-pickup.mp3
+├── se-mission-clear.mp3
+├── se-jump.mp3
+├── se-land.mp3
+├── se-dialog-next.mp3
+└── se-dialog-open.mp3
+```
+
+全 8 ファイル MP3 統一で iOS Safari Web Audio に確実対応。`AudioManager.ts` の `ensureStarted()` は silent buffer unlock + `await ctx.resume()` のシンプルな経路のみ (過剰防御削除済み)。
 
 ## アーキテクチャ概要 (Phase 6 完了時点)
 
