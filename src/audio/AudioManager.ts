@@ -50,6 +50,14 @@ export class AudioManager {
   /** Stage 2: UserSettings.onChange の解除関数 (dispose 時に呼ぶ) */
   private settingsUnsub: (() => void) | null = null;
 
+  /**
+   * iOS Safari silent switch bypass 用 HTMLAudioElement。
+   * 端末側面のサイレントスイッチが ON の場合、AudioContext は「ambient」セッション
+   * カテゴリでミュートされる。`<audio playsinline>` を一度 play() するとセッションが
+   * 「playback」に切り替わり、silent switch ON でも音が再生される (iOS 慣用 hack)。
+   */
+  private htmlAudioUnlock: HTMLAudioElement | null = null;
+
   constructor() {
     // mute は旧キーを直接読む (UserSettings も同じキーを参照するため両者は一致)
     const stored = localStorage.getItem(STORAGE_KEYS.AUDIO_MUTED);
@@ -57,6 +65,11 @@ export class AudioManager {
   }
 
   async ensureStarted(): Promise<void> {
+    // iOS Safari silent switch bypass: user gesture 同期内で <audio playsinline> を
+    // play() し、オーディオセッションを ambient → playback に切り替える。
+    // **必ず AudioContext 生成より先に実行する** (順序が逆だとセッション切替が効かない端末あり)。
+    this.startHtmlAudioUnlock();
+
     if (this.ctx) {
       // 再エントリ (タイトル復帰など) で suspended なら resume を await する。
       // PR #73 で void に変えたが、preloadAll 後の startBgm() 時点で suspended の
@@ -122,6 +135,44 @@ export class AudioManager {
 
     // 全音源を非同期 decode (UI ブロックしない)
     void this.preloadAll();
+  }
+
+  /**
+   * iOS Safari silent switch bypass.
+   *
+   * 端末側面のサイレントスイッチが ON の場合、Safari の AudioContext は
+   * 「ambient」セッションカテゴリで強制ミュートされる (Web Audio がスピーカーから
+   * 出ない)。これを回避するには、user gesture 同期内で `<audio playsinline>` を
+   * 1 度 play() してオーディオセッションを「playback」カテゴリへ昇格させる必要がある。
+   *
+   * - silent.mp3 (0.1 秒, 32kbps 無音 MP3, 748 bytes) を src に使用 (data URL より
+   *   Safari の互換性が高い)
+   * - volume は 1.0 のまま (中身が無音なのでスピーカーには何も出ない)
+   * - **複数回呼ばれても 1 回しか走らない** (htmlAudioUnlock が non-null チェック)
+   * - 失敗時は静かに無視 (AudioContext unlock 単独でも動く端末は多い)
+   */
+  private startHtmlAudioUnlock(): void {
+    if (this.htmlAudioUnlock) return;
+    try {
+      const el = document.createElement("audio");
+      // iOS Safari 必須属性
+      el.setAttribute("playsinline", "");
+      el.setAttribute("webkit-playsinline", "");
+      el.preload = "auto";
+      const base = import.meta.env.BASE_URL;
+      el.src = `${base}assets/audio/silent.mp3`;
+      el.loop = false;
+      const p = el.play();
+      if (p && typeof p.then === "function") {
+        p.then(() => {
+          // 再生に成功したら一旦止めて待機 (セッションカテゴリは既に変更済)
+          try { el.pause(); el.currentTime = 0; } catch { /* ignore */ }
+        }).catch(() => { /* user gesture 外なら NotAllowedError、無視 */ });
+      }
+      this.htmlAudioUnlock = el;
+    } catch {
+      /* element 作成自体が失敗するケースは無視 */
+    }
   }
 
   /** Stage 2: BGM 系 gain に bgmVolume 係数を反映 (ducking 中は VILLAGE_DUCK_GAIN を優先) */
@@ -322,6 +373,11 @@ export class AudioManager {
     }
     this.stopBgm();
     this.stopDanceBgm();
+    if (this.htmlAudioUnlock) {
+      try { this.htmlAudioUnlock.pause(); } catch { /* ignore */ }
+      this.htmlAudioUnlock.removeAttribute("src");
+      this.htmlAudioUnlock = null;
+    }
     if (this.ctx) {
       this.ctx.close().catch(() => {});
       this.ctx = null;
