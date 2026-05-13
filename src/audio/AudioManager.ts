@@ -12,20 +12,24 @@ import { UserSettings } from "../config/UserSettings";
  * - BGM (village): Kenney Music Jingles - Pizzicato (CC0, kenney.nl)
  * - BGM (dance): "Karma" by Michael Ramir C. (Mixkit License, mixkit.co - 商用利用可)
  *
- * iOS Safari は初回ユーザー操作後に AudioContext を resume する必要がある。
+ * **iOS Safari 対応 (PR #76)**:
+ * - SE / 村 BGM は **MP3** (元 OGG)。iOS Safari の `decodeAudioData()` は OGG Vorbis を
+ *   サポートしないため (Safari 18.5+ でも <audio> 要素経由のみ、Web Audio 経由は不可)。
+ * - 初回ユーザー操作で AudioContext.resume + silent buffer unlock + HTMLAudioElement
+ *   セッションカテゴリ昇格を行う (詳細は ensureStarted / startHtmlAudioUnlock)。
  */
 type SoundKey = "pickup" | "missionClear" | "jump" | "land" | "dialogNext" | "dialogOpen";
 
 const SOUND_FILES: Record<SoundKey, string> = {
-  pickup: "se-pickup.ogg",
-  missionClear: "se-mission-clear.ogg",
-  jump: "se-jump.ogg",
-  land: "se-land.ogg",
-  dialogNext: "se-dialog-next.ogg",
-  dialogOpen: "se-dialog-open.ogg",
+  pickup: "se-pickup.mp3",
+  missionClear: "se-mission-clear.mp3",
+  jump: "se-jump.mp3",
+  land: "se-land.mp3",
+  dialogNext: "se-dialog-next.mp3",
+  dialogOpen: "se-dialog-open.mp3",
 };
 
-const BGM_FILE = "bgm-village.ogg";
+const BGM_FILE = "bgm-village.mp3";
 const DANCE_BGM_FILE = "bgm-dance.mp3";
 
 const SE_GAIN = 0.55;

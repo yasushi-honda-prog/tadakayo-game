@@ -120,7 +120,7 @@ firebase.json / .firebaserc / firestore.rules / firestore.indexes.json   # Stage
 ```
 public/assets/
 ├── images/       # タダカヨちゃん 14 + dance 4 (front-dance-1..4) + NPC 3 + title-logo (計 22 PNG)
-└── audio/        # bgm-village.ogg + bgm-dance.mp3 (Mixkit "Karma" EDM 2:15) + se-{pickup,mission-clear,jump,land,dialog-open,dialog-next}.ogg
+└── audio/        # bgm-village.mp3 + bgm-dance.mp3 (Mixkit "Karma" EDM 2:15) + se-{pickup,mission-clear,jump,land,dialog-open,dialog-next}.mp3 + silent.mp3 (iOS unlock 用 0.1s 無音)
 ```
 
 `index.html` に **21 sprite を `<link rel=preload as=image>`** 追加 (PR #24 + #30): スタート時のチラつき解消。
