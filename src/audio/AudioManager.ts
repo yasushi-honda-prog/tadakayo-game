@@ -58,13 +58,31 @@ export class AudioManager {
 
   async ensureStarted(): Promise<void> {
     if (this.ctx) {
-      if (this.ctx.state === "suspended") await this.ctx.resume();
+      // iOS Safari: resume は await せず即時返す (user gesture sync を維持するため)。
+      // backgrounding 復帰時にも呼ばれるが、await すると次の同期処理が user gesture
+      // 外に逃げて再 unlock 失敗するケースがあった。
+      if (this.ctx.state === "suspended") void this.ctx.resume();
       return;
     }
     const AC =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     this.ctx = new AC();
+
+    // iOS Safari unlock: AudioContext 生成直後に user gesture 同期内で 1 サンプルの
+    // 無音 buffer を start() することで「unlocked」状態へ遷移させる。これを行わないと、
+    // iOS では state==="running" であっても出力が無音のままになる端末がある (Pixel/
+    // Android では不要だが副作用なし)。
+    try {
+      const silent = this.ctx.createBuffer(1, 1, 22050);
+      const src = this.ctx.createBufferSource();
+      src.buffer = silent;
+      src.connect(this.ctx.destination);
+      src.start(0);
+    } catch {
+      /* unlock 失敗時は通常パスで継続 */
+    }
+
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = this.muted ? 0 : 1.0;
     this.masterGain.connect(this.ctx.destination);
@@ -91,7 +109,9 @@ export class AudioManager {
       }
     });
 
-    if (this.ctx.state === "suspended") await this.ctx.resume();
+    // iOS Safari: await すると user gesture sync を抜けるため fire-and-forget。
+    // resume() Promise の解決は preloadAll() より先に走るのでバッファ再生時には完了済み。
+    if (this.ctx.state === "suspended") void this.ctx.resume();
 
     // 全音源を非同期 decode (UI ブロックしない)
     void this.preloadAll();
