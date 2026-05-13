@@ -43,15 +43,15 @@
   - Stage 3 #58: **Firestore + Anonymous Auth 永続化 + Firebase Hosting 移行** (ADR-2026-05-13 参照、公開 URL 変更)
   - Stage 4 #59: prefers-reduced-motion 対応 (UserMotion singleton、6 entity + ScoreScreen + toast 全対応) + プレイ開始時 welcome toast (4.5 秒、目標誘導)
 - 本番デプロイ済み: **https://tadakayo-game-yh.web.app/** (Firebase Hosting、Stage 3 以降)
-- 旧 URL `https://yasushi-honda-prog.github.io/tadakayo-game/` は Stage 3 マージ前のコンテンツで凍結中、redirect 化は別 PR
+- 旧 URL `https://yasushi-honda-prog.github.io/tadakayo-game/` は Stage 3 マージ前のコンテンツで凍結、PR #61 で新 URL への自動 redirect 化完了
 - 全 5 ミッション完走 + スコア画面 + 自己ベスト + 累計クリア + リプレイ + 噴水アニメ + ダンス NPC + Player 自身も踊る + HUD ヒント + コンパス + 設定 + a11y + welcome 演出 すべて稼働
+- **Phase 6 配信インフラ整備 完了** ✅ (2026-05-13): PR #61 (旧 GH Pages → 新 URL redirect) + PR #62 (`main` push → Firebase Hosting 自動デプロイ workflow、最小権限 SA + Secrets 設定)
+- **Phase 6 品質改善 完了** ✅ (2026-05-13): PR #64 (README に Anonymous UID 永続性 docs) + PR #65 (UserMotion `dispose()` で matchMedia listener cleanup) + PR #66 (Collectible y 計算 bug 真因修正: 床面 y > 0 のハートが +0.15-0.2m 余分浮上していた問題を解消)
 - **残課題** (別 PR、優先度順):
-  - Firebase Hosting 自動デプロイ CI (Service Account 認証、要明示承認)
-  - Collectible.ts の y 計算修正 (既存 bug、影響軽微)
   - Issue #31 (`postponed` ラベル付与済、スコープ 3 のみ: 段差エッジ snap 失敗、P2)
-  - Anonymous UID 永続性の docs 明記 (ブラウザクリア / 別端末で失われる仕様)
   - Rapier 0.20+ init() deprecation 再評価 (0.19.3 が現状最新、未リリース)
   - sprite 輪郭の縮小エイリアシング (PR #45 mipmap が #48 で revert された副作用、品質トレードオフとして許容)。再度 mipmap 化するなら asset pipeline に「RGB bleed + alpha floor clamp + alphaTest」をセットで実装する必要あり
+  - Firebase Firestore のバックアップ (PITR) / PR preview channel / Workload Identity Federation 移行 (handoff 残課題 #2-#4、要件整理必要)
 - ハンドオフ: `docs/handoff/LATEST.md` 参照 (Phase 5 系の旧履歴は `docs/handoff/2026-05-12_phase5-L.md`)
 
 ## 公開 URL と Firebase インフラ (Stage 3 以降)
