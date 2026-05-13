@@ -4,18 +4,25 @@
 キャラ輪郭の中で完全に閉じた領域に「透明ピクセル」が残ることがある。
 NPC 3 体 (nurse / elder / manager) は服の白い部分が背景チェッカーと
 同色 (白) で、`clean-white-halo.py` のハロ除去で削られた結果、服の
-内部に大きな透明 hole ができ、ゲーム内で「服が透けて背景が見える」
-不具合の原因になっていた (npc-elder: 4.57% / npc-nurse: 3.25% /
-npc-manager: 1.51% の透明面積)。
+内部に大きな透明 hole が残り、ゲーム内で「服が透けて背景が見える」
+不具合の原因になっていた (NPC 3 体で 1.5〜4.6% 程度の透明面積、
+実行時の正確な値は stdout に出力される)。
 
 本スクリプトは 4 隅から alpha==0 を BFS で塗りつぶし、「真の背景」を
 visited として記録、それ以外の alpha==0 を「内部 hole」とみなして
-白 (255,255,255,255) で fill する。fix-title-logo-checker.py と同様の
-発想だが、title-logo は「内部白を透明にする」逆方向の処理だったのに対し、
-こちらは「内部透明を白に戻す」方向。
+白で fill する。`fix-title-logo-checker.py` が「内部白→透明」だった
+のに対し、本スクリプトは「内部透明→白」の逆向き処理。
+
+**前提**:
+- 内部 hole が白系のキャラ専用。色付き hole が想定されるキャラを
+  追加した場合は `FILL_RGBA` を見直すこと。
+- tadakayo* (Player / DanceNpc) と title-logo は対象外 (本番反映済の
+  挙動を尊重 / title-logo は PR #50 で意図的に内部を透明化した処理を
+  保持)。glob で一括処理しないこと。
 
 Usage:
-    python3 scripts/fill-sprite-internal-holes.py path1.png [path2.png ...]
+    # NPC 3 体のみに適用（tadakayo* / title-logo は除外）
+    python3 scripts/fill-sprite-internal-holes.py public/assets/images/npc-*.png
 """
 
 from __future__ import annotations
