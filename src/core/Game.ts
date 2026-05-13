@@ -753,8 +753,10 @@ export class Game {
     this.playStartMs = performance.now();
     this.elapsed = 0;
     // Stage 4: オープニング演出 (画面上端のコンパスへの誘導)。4.5 秒で自動消滅。
+    // `\n` で明示改行 → `.hud-toast.welcome` 側の `white-space: pre-line` で
+    // 2 行表示。folding 任意位置で「示しま/す」のように 1 文字孤立する破綻を防ぐ。
     this.hud.flashClear(
-      "ようこそ、タダカヨ村へ！　画面上の▲が次の目標を示します",
+      "ようこそ、タダカヨ村へ！\n画面上の▲が次の目標を示します",
       4500,
       "welcome",
     );

@@ -400,6 +400,8 @@ html, body {
   max-width: min(640px, 92vw);
   line-height: 1.5;
   text-align: center;
+  /* Game.ts 側の `\n` を改行として表示し、文中で 1 文字孤立する任意折り返しを抑制 */
+  white-space: pre-line;
 }
 
 @media (prefers-reduced-motion: reduce) {
